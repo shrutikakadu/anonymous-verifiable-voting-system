@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <rect width="200" height="200" rx="24" fill="#111827"/>
+  <circle cx="100" cy="80" r="42" fill="#2563eb"/>
+  <path d="M55 130 L100 55 L145 130 Z" fill="#f8fafc"/>
+  <text x="100" y="165" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#f8fafc">Vote</text>
+</svg>
