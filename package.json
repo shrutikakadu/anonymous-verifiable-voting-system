@@ -5,11 +5,23 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "start": "npm run start --prefix backend",
-    "test": "npx jest --runInBand tests/**/*.test.js",
+    "test": "npx jest --runInBand",
+    "test:unit": "npx jest --runInBand tests/unit/",
+    "test:security": "npx jest --runInBand tests/security/",
+    "test:part4": "npx jest --runInBand tests/unit/tokenVerification.test.js tests/security/tokenReplayAttack.test.js",
     "lint": "echo \"No linter configured yet\""
   },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "moduleDirectories": [
+      "node_modules"
+    ]
+  },
   "devDependencies": {
-    "concurrently": "^9.0.1",
-    "jest": "^29.7.0"
+    "concurrently": "^10.0.5",
+    "jest": "^30.5.2"
   }
 }
