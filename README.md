@@ -190,18 +190,18 @@ Key test groups:
 
 ## 10-member responsibility table
 
-| Member | Responsibility |
-| --- | --- |
-| 1 | Voter registration + database |
-| 2 | Login + OTP + JWT |
-| 3 | RSA anonymous voting token |
-| 4 | Token verification + double-vote prevention |
-| 5 | AES vote encryption |
-| 6 | Vote submission + receipt generation |
-| 7 | Bulletin board + verification + tally |
-| 8 | Crypto utilities + security tests |
-| 9 | Voter frontend + API integration |
-| 10 | Admin frontend + integration testing |
+| Member | Responsibility | Assigned Member |
+| --- | --- | --- |
+| 1 | Voter registration + database | |
+| 2 | Login + OTP + JWT | |
+| 3 | RSA anonymous voting token | |
+| 4 | Token verification + double-vote prevention | Arya Akhade |
+| 5 | AES vote encryption | |
+| 6 | Vote submission + receipt generation | |
+| 7 | Bulletin board + verification + tally | Shrutika Kadu |
+| 8 | Crypto utilities + security tests | Dakkshesh |
+| 9 | Voter frontend + API integration | |
+| 10 | Admin frontend + integration testing | |
 
 ## Implementation order
 

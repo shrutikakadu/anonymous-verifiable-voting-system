@@ -1,36 +1,224 @@
-* { box-sizing: border-box; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f4f7fb;
-  color: #111827;
-}
-#root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0b0f19;
+  color: #f1f5f9;
   min-height: 100vh;
 }
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 .container {
-  max-width: 900px;
+  max-width: 1060px;
   margin: 2rem auto;
-  padding: 1rem 2rem;
+  padding: 0 1.5rem;
+  width: 100%;
 }
+
 .card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  background: #131b2e;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  padding: 1.75rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  margin-bottom: 1.5rem;
 }
-input, button {
+
+input, button, select {
+  font-family: inherit;
   border-radius: 8px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #f8fafc;
   padding: 0.75rem 1rem;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s ease;
 }
+
+input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
 button {
   background: #2563eb;
-  color: white;
+  color: #ffffff;
   border: none;
+  font-weight: 500;
   cursor: pointer;
 }
+
 button:hover {
-  opacity: 0.9;
+  background: #1d4ed8;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+
+.btn-outline:hover {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stat Cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: linear-gradient(145deg, #131c31, #0f172a);
+  border: 1px solid #1e293b;
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.stat-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-info {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+/* Bulletin Board Table */
+.bb-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.bb-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.bb-table th {
+  background: #0f172a;
+  padding: 0.85rem 1rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #1e293b;
+}
+
+.bb-table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.bb-table tr:hover td {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+/* Verification Result Box */
+.verification-result {
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.result-valid {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.result-invalid {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.result-tampered {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
