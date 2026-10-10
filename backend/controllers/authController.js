@@ -7,7 +7,10 @@ const { createOTPForVoter } = require('../services/otpService');
 
 const register = async (req, res, next) => {
   try {
-    const { name, voterId, email, password } = req.body;
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    const voterId = typeof req.body.voterId === 'string' ? req.body.voterId.trim().toUpperCase() : '';
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const { password } = req.body;
 
     if (!name || !voterId || !email || !password) {
       return res.status(400).json({ message: 'All fields are required' });
@@ -30,10 +33,18 @@ const register = async (req, res, next) => {
       passwordHash,
     });
 
-    await createOTPForVoter(voter);
+    let otpDeliveryWarning;
+    try {
+      await createOTPForVoter(voter);
+    } catch (error) {
+      // The voter is already safely stored. Do not make the client retry registration
+      // and hit a duplicate; explain that OTP delivery needs attention instead.
+      console.error('Voter registered, but OTP delivery failed:', error.message);
+      otpDeliveryWarning = ' Registration was saved, but the OTP email could not be sent.';
+    }
 
     return res.status(201).json({
-      message: 'Registration successful. OTP sent to email.',
+      message: `Registration successful.${otpDeliveryWarning || ' OTP sent to email.'}`,
       voter: {
         id: voter._id,
         name: voter.name,
@@ -42,19 +53,23 @@ const register = async (req, res, next) => {
       },
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: 'A voter with this ID or email is already registered' });
+    }
     next(error);
   }
 };
 
 const login = async (req, res, next) => {
   try {
-    const { voterId, password } = req.body;
+    const { password } = req.body;
+    const voterId = typeof req.body.voterId === 'string' ? req.body.voterId.trim().toUpperCase() : '';
 
     if (!voterId || !password) {
       return res.status(400).json({ message: 'Voter ID and password are required' });
     }
 
-    const voter = await Voter.findOne({ voterId });
+    const voter = await Voter.findOne({ voterId }).select('+passwordHash');
     if (!voter) {
       return res.status(404).json({ message: 'Voter not found' });
     }
@@ -80,7 +95,8 @@ const login = async (req, res, next) => {
 
 const verifyOTP = async (req, res, next) => {
   try {
-    const { voterId, otpCode } = req.body;
+    const { otpCode } = req.body;
+    const voterId = typeof req.body.voterId === 'string' ? req.body.voterId.trim().toUpperCase() : '';
 
     if (!voterId || !otpCode) {
       return res.status(400).json({ message: 'Voter ID and OTP are required' });

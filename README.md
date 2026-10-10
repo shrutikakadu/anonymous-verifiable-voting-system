@@ -94,6 +94,8 @@ PORT=5000
 - Ensure the application user has read and write access.
 - Keep the `MONGO_URI` value in the environment file.
 
+For a persistent registration demo, make sure the backend connects to the configured MongoDB instance. The development fallback can use an in-memory MongoDB when the configured URI is unavailable; that data is temporary and disappears when the process stops.
+
 ## Backend setup
 
 ```bash
@@ -118,6 +120,28 @@ npm run dev
 - `POST /api/auth/login`
 - `POST /api/auth/verify-otp`
 - `POST /api/auth/logout`
+
+### Voter registration demo
+
+The registration form at `http://localhost:5173/register` submits to `POST /api/auth/register`. Send `name`, `voterId`, `email`, and a password of at least 8 characters. The API trims the name and voter ID, stores voter IDs uppercase and email lowercase, rejects duplicate voter IDs or emails with HTTP `409`, and hashes the password with bcrypt before MongoDB receives the voter document. The response deliberately omits both the password and its hash.
+
+1. Start MongoDB and set `MONGO_URI` in the root `.env` file. For example: `mongodb://localhost:27017/anonymous-voting`.
+2. Follow the backend and frontend setup instructions above.
+3. Register at `http://localhost:5173/register` with a new voter ID and email. Without SMTP credentials, the OTP service prints the development OTP in the backend terminal.
+4. Confirm the record and bcrypt hash in `mongosh`:
+
+   ```javascript
+   use anonymous-voting
+   db.voters.findOne(
+     { voterId: "DEMO001" },
+     { name: 1, voterId: 1, email: 1, passwordHash: 1, _id: 0 }
+   )
+   ```
+
+   `passwordHash` should start with a bcrypt marker such as `$2a$` or `$2b$` and must not equal the password entered in the form. The `passwordHash` field is excluded from normal Mongoose query results unless explicitly selected by the login code.
+5. Submit the same voter ID or email again to see the duplicate registration response. Then log in with the voter ID and password to demonstrate bcrypt comparison.
+
+The login step is separate from registration. Registration stores the voter and prepares the OTP used by the README's later authentication flow.
 
 ### Voting token
 

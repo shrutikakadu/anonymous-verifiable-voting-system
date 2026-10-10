@@ -6,8 +6,8 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/anonymous-voting');
     console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
-    console.log('Local MongoDB not found. Starting In-Memory Database instead...');
-    
+    console.error('MongoDB connection failed:', error.message);
+    console.log('Starting In-Memory Database instead...');
     try {
       const { MongoMemoryServer } = require('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create();
