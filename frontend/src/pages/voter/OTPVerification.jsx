@@ -10,7 +10,11 @@ function OTPVerification() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const voterId = localStorage.getItem('voterId') || 'demo-voter';
+      const voterId = localStorage.getItem('voterId');
+      if (!voterId) {
+        setError('Please log in again before verifying your OTP.');
+        return;
+      }
       const result = await verifyOTP({ voterId, otpCode });
       setMessage(result.message);
       window.location.href = '/dashboard';
