@@ -4,6 +4,7 @@ node_modules/
 .env.*.local
 frontend/node_modules/
 backend/node_modules/
+backend/keys/private.pem
 coverage/
 dist/
 .vite/
