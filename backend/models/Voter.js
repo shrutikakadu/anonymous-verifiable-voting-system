@@ -7,6 +7,7 @@ const voterSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   isEligible: { type: Boolean, default: true },
   hasVoted: { type: Boolean, default: false },
+  hasReceivedToken: { type: Boolean, default: false }, // Part 3: prevents duplicate token issuance
   otpCode: { type: String, default: null },
   otpVerified: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
