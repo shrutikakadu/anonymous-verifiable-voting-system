@@ -8,6 +8,8 @@
     "test": "npx jest --runInBand",
     "test:unit": "npx jest --runInBand tests/unit/",
     "test:security": "npx jest --runInBand tests/security/",
+    "test:integration": "npx jest --runInBand tests/integration/",
+    "demonstrate:attacks": "node scripts/demonstrate-attacks.js",
     "test:part4": "npx jest --runInBand tests/unit/tokenVerification.test.js tests/security/tokenReplayAttack.test.js",
     "lint": "echo \"No linter configured yet\""
   },
