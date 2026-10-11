@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { registerVoter } from '../../services/authService';
 import ErrorMessage from '../../components/ErrorMessage';
 
 function Register() {
+  const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', voterId: '', email: '', password: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -18,10 +20,12 @@ function Register() {
     setError('');
     setMessage('');
     setSubmitting(true);
-
     try {
       const result = await registerVoter(form);
-      setMessage(result.message);
+      sessionStorage.setItem('pendingOtp', JSON.stringify({
+        voterId: result.voter.voterId, purpose: 'registration',
+      }));
+      navigate('/verify-otp', { state: { otpError: !result.otpSent } });
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {
@@ -40,7 +44,7 @@ function Register() {
           <input name="password" type="password" placeholder="Password (at least 8 characters)" autoComplete="new-password" required minLength={8} value={form.password} onChange={handleChange} />
           <button type="submit" disabled={submitting}>{submitting ? 'Registering…' : 'Register'}</button>
         </form>
-        {message && <div style={{ marginTop: '1rem', color: 'green' }}>{message}</div>}
+        {message && <div style={{ marginTop: '1rem' }}>{message}</div>}
         <ErrorMessage message={error} />
       </div>
     </div>
