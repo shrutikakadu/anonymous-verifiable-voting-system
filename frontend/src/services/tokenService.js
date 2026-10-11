@@ -9,3 +9,13 @@ export const generateVotingToken = async () => {
   });
   return response.data;
 };
+
+export const verifyVotingToken = async (token, signature) => {
+  const authToken = localStorage.getItem('token');
+  const response = await axios.post(
+    `${API_URL}/verify`,
+    { token, signature },
+    { headers: { Authorization: `Bearer ${authToken}` } }
+  );
+  return response.data;
+};
