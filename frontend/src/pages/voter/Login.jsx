@@ -102,8 +102,8 @@ function Login() {
         </div>
       </div>
 
-      <div style={{ background: '#0e1626', border: '1px solid #1e293b', borderRadius: '10px', padding: '0.9rem 1.25rem', fontSize: '0.82rem', color: '#64748b', lineHeight: '1.6' }}>
-        <strong style={{ color: '#94a3b8' }}>CNS Security:</strong> Password verified using bcrypt (Part 1). Successful login issues a JWT (Part 2). OTP verification follows for 2FA authentication.
+      <div style={{ background: 'rgba(14, 22, 38, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1rem 1.35rem', fontSize: '0.85rem', color: '#94a3b8', lineHeight: '1.6' }}>
+        <strong style={{ color: '#38bdf8' }}>Security Protocol:</strong> Secure credential verification using salted bcrypt hash. Successful authorization generates a signed cryptographic session and initiates two-factor authentication (2FA).
       </div>
     </div>
   );

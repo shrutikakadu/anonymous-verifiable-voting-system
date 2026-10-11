@@ -130,11 +130,11 @@ function VoterDashboard() {
         ))}
       </div>
 
-      {/* CNS Info Box */}
-      <div style={{ background: '#0e1626', border: '1px solid #1e293b', borderRadius: '10px', padding: '1rem 1.25rem', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.6' }}>
-        <strong style={{ color: '#94a3b8' }}>🔐 Your Privacy Guarantee:</strong>
+      {/* Cryptographic Privacy Architecture */}
+      <div style={{ background: 'rgba(14, 22, 38, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1.1rem 1.4rem', fontSize: '0.88rem', color: '#94a3b8', lineHeight: '1.6' }}>
+        <strong style={{ color: '#38bdf8' }}>🔐 Cryptographic Privacy Guarantee:</strong>
         <br />
-        Your anonymous voting token is RSA-signed and single-use (Part 3+4). Your vote is encrypted with AES-256-GCM before storage (Part 5). Your SHA-256 receipt lets you verify inclusion without revealing your identity (Part 7).
+        Your anonymous voting token is RSA-signed and strictly single-use. Your vote payload is encrypted with AES-256-GCM prior to storage, and your SHA-256 receipt enables independent mathematical verification on the public bulletin board without revealing voter identity or candidate choice.
       </div>
     </div>
   );

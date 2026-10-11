@@ -1,13 +1,16 @@
 /**
  * tests/security/fakeToken.test.js
  * ---------------------------------
- * Part 10: Security Tests — Forged & Fake Voting Token Detection
+ * Part 10 & Part 4: Security Tests — Fake, Forged, Tampered & Unissued Tokens
  *
  * Validates Cryptography & Network Security (CNS) Concepts:
  *  - Digital Signature Integrity (RSA-SHA256 signature verification)
  *  - Authentication & Authorization (Only server-issued tokens are valid)
- *  - Resistance to Forgery (Attacker keys, modified tokens, random blobs)
+ *  - Defense Against Client-Supplied Public Key Injection Attacks
+ *  - Detection of Tampered Token Payloads
+ *  - Detection of Unissued / Unregistered Tokens
  *  - Strict Input Sanitization (Missing fields, malformed formats)
+ *  - Vote Submission Pipeline Protection (Never persist invalid votes)
  */
 
 'use strict';
@@ -32,6 +35,7 @@ const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = cry
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
 
+// Attacker key pair (different, unauthorized key pair)
 const { privateKey: attackerPrivateKey, publicKey: attackerPublicKey } = crypto.generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding:  { type: 'spki',  format: 'pem' },
@@ -39,16 +43,17 @@ const { privateKey: attackerPrivateKey, publicKey: attackerPublicKey } = crypto.
 });
 
 // Helper: sign token using a private key
-const sign = (tokenStr, privKey) => {
+const signWithKey = (tokenStr, privKey) => {
   const signer = crypto.createSign('sha256');
   signer.update(tokenStr);
   signer.end();
   return signer.sign(privKey, 'base64');
 };
 
+const sign = signWithKey;
 const hashToken = (tokenStr) => crypto.createHash('sha256').update(tokenStr).digest('hex');
 
-// ── Mock fs to return our trusted server public key ──────────────────────────
+// ── Mock fs to return our trusted server public & private keys ────────────────
 jest.mock('fs', () => {
   const actualFs = jest.requireActual('fs');
   return {
@@ -69,22 +74,25 @@ const app = require('../../backend/app');
 const { jwtSecret } = require('../../backend/config/keys');
 const { verifyVotingToken, VERIFY_RESULT } = require('../../backend/services/tokenVerificationService');
 
-describe('Security Tests: Forged and Fake Voting Token Rejection', () => {
-  const testVoterId = 'voter_security_test_01';
-  let voterJwt;
+describe('Security Tests: Forged, Fake, Tampered & Unissued Voting Token Rejection', () => {
+  const voterId = 'test_voter_fake_token_suite';
+  let validJwt;
   const validAesKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
   beforeAll(() => {
     process.env.AES_SECRET_KEY = validAesKey;
-    voterJwt = jwt.sign({ sub: testVoterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    validJwt = jwt.sign({ sub: voterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
-    Voter.findById.mockResolvedValue({ _id: testVoterId, hasVoted: false, save: jest.fn() });
+    Voter.findById.mockResolvedValue({ _id: voterId, hasVoted: false, save: jest.fn() });
     Vote.findOne.mockResolvedValue(null);
   });
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // 1. Service-Level Cryptographic Signature & Integrity Checks
+  // ───────────────────────────────────────────────────────────────────────────
   describe('1. Service-Level Signature and Forgery Checks', () => {
     it('❌ Rejects token when signature was created using an attacker private key', async () => {
       const token = crypto.randomBytes(32).toString('hex');
@@ -129,32 +137,84 @@ describe('Security Tests: Forged and Fake Voting Token Rejection', () => {
     });
   });
 
-  describe('2. API-Level Token Verification Endpoint (/api/token/verify)', () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 2. API-Level Token Verification: Forged RSA Signatures (/api/token/verify)
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('2. Forged RSA Signatures at /api/token/verify', () => {
     it('❌ Returns HTTP 401 when attacker presents forged signature', async () => {
       const token = crypto.randomBytes(32).toString('hex');
       const fakeSig = sign(token, attackerPrivateKey);
 
       const res = await request(app)
         .post('/api/token/verify')
-        .set('Authorization', `Bearer ${voterJwt}`)
+        .set('Authorization', `Bearer ${validJwt}`)
         .send({ token, signature: fakeSig, publicKey: mockServerPublicKey });
+
+      expect(res.status).toBe(401);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.code).toBe(VERIFY_RESULT.SIGNATURE_INVALID);
+      expect(res.body.message).toContain('RSA signature is invalid');
+    });
+
+    it('❌ Rejects client-supplied public key injection attack (HTTP 401)', async () => {
+      // Attacker signs with their private key and sends their public key in body,
+      // attempting to trick server into validating with the attacker's key.
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const forgedSignature = signWithKey(rawToken, attackerPrivateKey);
+
+      const res = await request(app)
+        .post('/api/token/verify')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({
+          token: rawToken,
+          signature: forgedSignature,
+          publicKey: attackerPublicKey, // Injected key should not bypass server trust
+        });
 
       expect(res.status).toBe(401);
       expect(res.body.valid).toBe(false);
       expect(res.body.code).toBe(VERIFY_RESULT.SIGNATURE_INVALID);
     });
 
-    it('❌ Returns HTTP 400 when required fields are missing', async () => {
+    it('❌ Rejects completely random / garbage signature (HTTP 401)', async () => {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const garbageSignature = crypto.randomBytes(256).toString('base64');
+
       const res = await request(app)
         .post('/api/token/verify')
-        .set('Authorization', `Bearer ${voterJwt}`)
-        .send({ token: 'some_token' }); // missing signature & publicKey
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({ token: rawToken, signature: garbageSignature, publicKey: mockServerPublicKey });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
       expect(res.body.valid).toBe(false);
-      expect(res.body.code).toBe(VERIFY_RESULT.MISSING_FIELDS);
+      expect(res.body.code).toBe(VERIFY_RESULT.SIGNATURE_INVALID);
     });
+  });
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // 3. API-Level Token Verification: Tampered Token Payloads
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('3. Tampered Token Payloads at /api/token/verify', () => {
+    it('❌ Rejects token when contents are modified after signing (HTTP 401)', async () => {
+      const originalToken = crypto.randomBytes(32).toString('hex');
+      const validSignature = signWithKey(originalToken, mockServerPrivateKey);
+      const tamperedToken = originalToken.slice(0, -2) + (originalToken.endsWith('ff') ? '00' : 'ff');
+
+      const res = await request(app)
+        .post('/api/token/verify')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({ token: tamperedToken, signature: validSignature, publicKey: mockServerPublicKey });
+
+      expect(res.status).toBe(401);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.code).toBe(VERIFY_RESULT.SIGNATURE_INVALID);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 4. API-Level Token Verification: Unissued / Unregistered Tokens
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('4. Unissued / Unregistered Tokens at /api/token/verify', () => {
     it('❌ Returns HTTP 401 when token has valid signature but does not exist in ledger', async () => {
       const token = crypto.randomBytes(32).toString('hex');
       const signature = sign(token, mockServerPrivateKey);
@@ -163,23 +223,44 @@ describe('Security Tests: Forged and Fake Voting Token Rejection', () => {
 
       const res = await request(app)
         .post('/api/token/verify')
-        .set('Authorization', `Bearer ${voterJwt}`)
+        .set('Authorization', `Bearer ${validJwt}`)
         .send({ token, signature, publicKey: mockServerPublicKey });
 
       expect(res.status).toBe(401);
       expect(res.body.valid).toBe(false);
       expect(res.body.code).toBe(VERIFY_RESULT.TOKEN_NOT_FOUND);
+      expect(res.body.message).toContain('not issued by our system');
     });
   });
 
-  describe('3. Vote Submission Endpoint (/api/vote/cast) with Forged Token', () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 5. Missing & Malformed Inputs at /api/token/verify
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('5. Missing & Malformed Inputs at /api/token/verify', () => {
+    it('❌ Returns HTTP 400 when required fields are missing', async () => {
+      const res = await request(app)
+        .post('/api/token/verify')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({ token: 'some_token' }); // missing signature & publicKey
+
+      expect(res.status).toBe(400);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.code).toBe(VERIFY_RESULT.MISSING_FIELDS);
+      expect(res.body.message).toContain('required fields');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 6. Vote Submission Endpoint (/api/vote/cast) with Forged Token
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('6. Vote Submission Endpoint (/api/vote/cast) with Forged Token', () => {
     it('❌ Rejects ballot casting when token signature is forged (HTTP 401)', async () => {
       const token = crypto.randomBytes(32).toString('hex');
       const fakeSig = sign(token, attackerPrivateKey);
 
       const res = await request(app)
         .post('/api/vote/cast')
-        .set('Authorization', `Bearer ${voterJwt}`)
+        .set('Authorization', `Bearer ${validJwt}`)
         .send({
           token,
           signature: fakeSig,
@@ -187,6 +268,7 @@ describe('Security Tests: Forged and Fake Voting Token Rejection', () => {
         });
 
       expect(res.status).toBe(401);
+      expect(res.body.code).toBe(VERIFY_RESULT.SIGNATURE_INVALID);
       expect(res.body.message).toContain('RSA signature is invalid');
       expect(Vote.create).not.toHaveBeenCalled();
     });
@@ -199,7 +281,7 @@ describe('Security Tests: Forged and Fake Voting Token Rejection', () => {
 
       const res = await request(app)
         .post('/api/vote/cast')
-        .set('Authorization', `Bearer ${voterJwt}`)
+        .set('Authorization', `Bearer ${validJwt}`)
         .send({
           token,
           signature: validSig,

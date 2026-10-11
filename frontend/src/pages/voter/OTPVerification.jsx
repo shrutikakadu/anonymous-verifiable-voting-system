@@ -106,8 +106,8 @@ function OTPVerification() {
         </div>
       </div>
 
-      <div style={{ background: '#0e1626', border: '1px solid #1e293b', borderRadius: '10px', padding: '0.9rem 1.25rem', fontSize: '0.82rem', color: '#64748b' }}>
-        <strong style={{ color: '#94a3b8' }}>CNS Security (Part 2):</strong> OTP is a one-time password sent via email (Nodemailer). This implements Two-Factor Authentication (2FA) / Multi-Factor Authentication (MFA) to prevent unauthorized access even if the password is compromised.
+      <div style={{ background: 'rgba(14, 22, 38, 0.8)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1rem 1.35rem', fontSize: '0.85rem', color: '#94a3b8', lineHeight: '1.6' }}>
+        <strong style={{ color: '#38bdf8' }}>Multi-Factor Authentication (2FA):</strong> A cryptographically secure one-time passcode has been dispatched to your verified email address to guarantee identity authenticity and prevent unauthorized access.
       </div>
     </div>
   );

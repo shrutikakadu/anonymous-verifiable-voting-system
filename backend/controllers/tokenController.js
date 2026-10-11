@@ -113,16 +113,29 @@ const generateToken = async (req, res, next) => {
  * Returns a structured response with a result code so clients
  * know exactly WHY a token was rejected.
  *
- * Request body: { token, signature, publicKey }
+ * Request body: { token, signature } (publicKey is loaded from trusted server storage)
  *
  * Success  → 200 { valid: true,  code: 'VALID', message }
  * Failure  → 400 / 401 / 409 with { valid: false, code, message }
  */
 const verifyToken = async (req, res, next) => {
   try {
-    const { token, signature, publicKey } = req.body;
+    const { token, signature } = req.body;
 
-    const { code, tokenRecord } = await verifyVotingToken(token, signature, publicKey);
+    if (!token || !signature) {
+      return res.status(400).json({
+        valid: false,
+        code: VERIFY_RESULT.MISSING_FIELDS,
+        message: 'token and signature are required fields',
+      });
+    }
+
+    // Always load the server's trusted RSA public key; never trust a client-supplied key
+    ensureKeyFiles();
+    const { publicKeyPath } = getKeyPairPaths();
+    const trustedPublicKey = fs.readFileSync(publicKeyPath, 'utf8');
+
+    const { code, tokenRecord } = await verifyVotingToken(token, signature, trustedPublicKey);
 
     switch (code) {
       case VERIFY_RESULT.VALID:
@@ -137,7 +150,7 @@ const verifyToken = async (req, res, next) => {
         return res.status(400).json({
           valid: false,
           code,
-          message: 'token, signature, and publicKey are all required fields',
+          message: 'token and signature are required fields',
         });
 
       case VERIFY_RESULT.SIGNATURE_INVALID:
@@ -193,6 +206,10 @@ const markUsed = async (req, res, next) => {
 
     if (!tokenHash) {
       return res.status(400).json({ message: 'tokenHash is required' });
+    }
+
+    if (typeof tokenHash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(tokenHash)) {
+      return res.status(400).json({ message: 'tokenHash must be a 64-character hexadecimal string' });
     }
 
     const success = await markTokenAsUsed(tokenHash);

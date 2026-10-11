@@ -79,20 +79,20 @@ function VerifyVote() {
 
   return (
     <div className="container">
-      {/* Page Title & CNS Badges */}
+      {/* Page Title & Badges */}
       <div style={{ marginBottom: '1.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
           <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
             Independent Vote Receipt Verification
           </h1>
-          <span className="badge badge-info">Part 7: Shrutika</span>
+          <span className="badge badge-info">🛡️ Independent Audit</span>
         </div>
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
           Cryptographic proof of inclusion. Enter your unique SHA-256 ballot receipt to independently audit that your anonymous vote was recorded in the official database.
         </p>
       </div>
 
-      {/* CNS Concepts Badges */}
+      {/* Security Architecture Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <span className="badge badge-info">🔍 Public Verification</span>
         <span className="badge badge-info">🔒 Zero-Knowledge Integrity</span>
@@ -232,7 +232,7 @@ function VerifyVote() {
       {/* Audit Guide */}
       <div className="card" style={{ background: '#0e1626' }}>
         <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', color: '#94a3b8' }}>
-          🛡️ CNS Audit Principles
+          🛡️ Cryptographic Audit Principles
         </h3>
         <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#64748b', fontSize: '0.85rem', lineHeight: '1.6' }}>
           <li>

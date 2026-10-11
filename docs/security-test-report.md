@@ -4,7 +4,7 @@
 **Module Assignment:** Part 10: Security Testing, Attack Demonstration, and System Testing  
 **Course:** Cryptography and Network Security (CNS) / College Project  
 **Date:** October 2026  
-**Status:** Complete — All 16 Test Suites (172 Tests) Passing (100% Pass Rate)
+**Status:** Complete — All 16 Test Suites (179 Tests) Passing (100% Pass Rate)
 
 ---
 
@@ -66,7 +66,7 @@ The primary responsibility of **Part 10** is the comprehensive security validati
 
 ## 3. Security Test Cases
 
-The table below catalogs all **60 automated security test cases** implemented across the 7 security test suites. Every test case has been executed, observed, and confirmed passing.
+The table below catalogs all **66 automated security test cases** implemented across the 7 security test suites. Every test case has been executed, observed, and confirmed passing.
 
 | Test ID | Security Test Case | Threat Being Checked | Expected Result | Actual Result | Status |
 | :---: | :--- | :--- | :--- | :--- | :---: |
@@ -130,6 +130,12 @@ The table below catalogs all **60 automated security test cases** implemented ac
 | **TC-SEC-58** | Part 7: Detects altered database payload upon verification | Ledger Tampering Detection | Returns `valid: false`, `INTEGRITY_FAILED` | `INTEGRITY_FAILED` returned | **PASS** |
 | **TC-SEC-59** | Part 7: Confirms vote inclusion for authentic receipt hash | Authentic Public Verifiability | Returns `valid: true`, status "Vote included" | Valid inclusion confirmed | **PASS** |
 | **TC-SEC-60** | Part 7: Bulletin board never leaks voter identity fields | Anonymity Guarantee Audit | `voterId`, `email`, `name`, `password` undefined | All private fields undefined | **PASS** |
+| **TC-SEC-61** | Rejects client-supplied public key injection attack in `/api/token/verify` | Public Key Substitution Attack | HTTP 401 Unauthorized; server uses internal key | HTTP 401 returned | **PASS** |
+| **TC-SEC-62** | Rejects token when contents are modified after signing in `/api/token/verify` | Signature Integrity Check | HTTP 401 with `code: SIGNATURE_INVALID` | HTTP 401 returned | **PASS** |
+| **TC-SEC-63** | Rejects completely random / garbage signature in `/api/token/verify` | Malformed Signature Rejection | HTTP 401 with `code: SIGNATURE_INVALID` | HTTP 401 returned | **PASS** |
+| **TC-SEC-64** | Direct consumption endpoint `/api/token/mark-used` returns 200 on fresh token | Legitimate Token Consumption | HTTP 200 with `tokenHash` confirmed marked | HTTP 200 returned | **PASS** |
+| **TC-SEC-65** | Direct consumption `/api/token/mark-used` rejects non-hex / malformed `tokenHash` | Input Format Validation | HTTP 400 Bad Request ("64-character hexadecimal") | HTTP 400 returned | **PASS** |
+| **TC-SEC-66** | Concurrency simulation on `/api/token/mark-used` allows only 1 of 2 simultaneous requests | Race Condition Exploitation | Exactly one request returns 200; competitor gets 409 | Statuses: [200, 409] | **PASS** |
 
 ---
 
@@ -186,9 +192,9 @@ sequenceDiagram
 
 ### 4.3 Integration Test Execution Results
 Both integration test suites execute cleanly and pass without errors:
-- [`tests/integration/votingFlow.test.js`](file:///c:/Users/User/Downloads/anonymous-verifiable-voting-system-main/anonymous-verifiable-voting-system/tests/integration/votingFlow.test.js): **12 passed, 0 failed**
+- [`tests/integration/votingFlow.test.js`](file:///c:/Users/User/Downloads/anonymous-verifiable-voting-system-main/anonymous-verifiable-voting-system/tests/integration/votingFlow.test.js): **13 passed, 0 failed**
 - [`tests/integration/endToEndVotingSystem.test.js`](file:///c:/Users/User/Downloads/anonymous-verifiable-voting-system-main/anonymous-verifiable-voting-system/tests/integration/endToEndVotingSystem.test.js): **9 passed, 0 failed**
-- **Total Integration Tests:** **21 passed, 0 failed**
+- **Total Integration Tests:** **22 passed, 0 failed**
 
 ---
 
@@ -251,14 +257,14 @@ All test suites were executed sequentially via `jest --runInBand`. The table bel
 
 | Suite Category | Suite File Path | Test Count | Passing | Failing | Execution Time |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Security** | `tests/security/fakeToken.test.js` | 9 | 9 | 0 | 0.8 s |
-| **Security** | `tests/security/reusedToken.test.js` | 7 | 7 | 0 | 0.7 s |
+| **Security** | `tests/security/fakeToken.test.js` | 12 | 12 | 0 | 0.9 s |
+| **Security** | `tests/security/reusedToken.test.js` | 10 | 10 | 0 | 0.8 s |
 | **Security** | `tests/security/tamperedVote.test.js` | 8 | 8 | 0 | 0.8 s |
 | **Security** | `tests/security/otpBypass.test.js` | 6 | 6 | 0 | 0.8 s |
 | **Security** | `tests/security/unauthorizedAdmin.test.js` | 14 | 14 | 0 | 1.1 s |
 | **Security** | `tests/security/tokenReplayAttack.test.js` | 10 | 10 | 0 | 1.0 s |
 | **Security** | `tests/security/invalidReceipt.test.js` | 6 | 6 | 0 | 0.7 s |
-| **Integration** | `tests/integration/votingFlow.test.js` | 12 | 12 | 0 | 2.1 s |
+| **Integration** | `tests/integration/votingFlow.test.js` | 13 | 13 | 0 | 2.1 s |
 | **Integration** | `tests/integration/endToEndVotingSystem.test.js` | 9 | 9 | 0 | 1.9 s |
 | **Unit** | `tests/unit/tokenGeneration.test.js` | 13 | 13 | 0 | 0.9 s |
 | **Unit** | `tests/unit/tokenVerification.test.js` | 8 | 8 | 0 | 0.7 s |
@@ -267,10 +273,10 @@ All test suites were executed sequentially via `jest --runInBand`. The table bel
 | **Unit** | `tests/unit/rsa.test.js` | 7 | 7 | 0 | 0.6 s |
 | **Unit** | `tests/unit/otp.test.js` | 1 | 1 | 0 | 0.5 s |
 | **Unit** | `tests/unit/sha256.test.js` | 8 | 8 | 0 | 0.5 s |
-| **TOTAL** | **16 Test Suites** | **172** | **172** | **0** | **15.3 s** |
+| **TOTAL** | **16 Test Suites** | **179** | **179** | **0** | **15.5 s** |
 
 - **Total Test Suites Executed:** 16 (16 passed, 0 failed)
-- **Total Tests Executed:** 172 (172 passed, 0 failed)
+- **Total Tests Executed:** 179 (179 passed, 0 failed)
 - **Blocked or Not-Run Tests:** 0
 - **Test Pass Rate:** **100.0%**
 

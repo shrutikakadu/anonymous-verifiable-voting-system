@@ -90,8 +90,8 @@ function AdminLogin() {
         </div>
       </div>
 
-      <div style={{ background: '#0e1626', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '10px', padding: '0.9rem 1.25rem', fontSize: '0.82rem', color: '#64748b' }}>
-        <strong style={{ color: '#94a3b8' }}>CNS Security (Part 8):</strong> Admin authentication uses bcrypt password verification and issues a JWT with role: "admin". All admin-only routes are protected by JWT middleware + adminOnly RBAC middleware — voters cannot access admin endpoints.
+      <div style={{ background: 'rgba(14, 22, 38, 0.8)', border: '1px solid rgba(167, 139, 250, 0.25)', borderRadius: '12px', padding: '1rem 1.35rem', fontSize: '0.85rem', color: '#94a3b8', lineHeight: '1.6' }}>
+        <strong style={{ color: '#c084fc' }}>Administrative Security Protocol:</strong> Admin authentication validates credentials with salted bcrypt hashes and generates a signed JWT with role: "admin". All administrative endpoints are guarded by token validation and RBAC middleware.
       </div>
     </div>
   );
