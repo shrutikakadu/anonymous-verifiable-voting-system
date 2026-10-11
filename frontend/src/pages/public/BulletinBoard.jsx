@@ -67,7 +67,7 @@ function BulletinBoard() {
             <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
               Public Cryptographic Bulletin Board
             </h1>
-            <span className="badge badge-info">Part 7: Shrutika</span>
+            <span className="badge badge-info">🛡️ Verified Ledger</span>
           </div>
           <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem', maxWidth: '680px' }}>
             Transparent, append-only public ledger of anonymous vote receipt hashes. Voters can independently verify that their ballot was recorded without exposing their choice or identity.
@@ -83,12 +83,12 @@ function BulletinBoard() {
         </button>
       </div>
 
-      {/* CNS Concepts Badges */}
+      {/* Security Architecture Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-        <span className="badge badge-info">🛡️ CNS Concept: Integrity (SHA-256)</span>
-        <span className="badge badge-info">🌐 CNS Concept: Transparency</span>
-        <span className="badge badge-info">🔍 CNS Concept: Public Verification</span>
-        <span className="badge badge-info">📊 CNS Concept: Auditability</span>
+        <span className="badge badge-info">🛡️ Cryptographic Integrity (SHA-256)</span>
+        <span className="badge badge-info">🌐 Public Transparency</span>
+        <span className="badge badge-info">🔍 Zero-Knowledge Verification</span>
+        <span className="badge badge-info">📊 Real-Time Auditability</span>
         <span className="badge badge-success">🔒 Zero Identity Exposure</span>
       </div>
 

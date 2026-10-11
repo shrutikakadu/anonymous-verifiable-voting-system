@@ -40,14 +40,14 @@ function GetVotingToken() {
           <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
             Anonymous Voting Token
           </h1>
-          <span className="badge badge-info">Part 3: RSA Token</span>
+          <span className="badge badge-info">🔑 RSA Blinded Token</span>
         </div>
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
           Generate your one-time RSA-signed anonymous voting token. The token is randomly generated, signed with the server's private key, and stored only as a hash — never linking back to your identity.
         </p>
       </div>
 
-      {/* CNS Badges */}
+      {/* Cryptographic Security Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <span className="badge badge-info">🔑 RSA Private Key Signing</span>
         <span className="badge badge-info">🌐 Public Key Cryptography</span>

@@ -34,7 +34,7 @@ function AdminDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '1.75rem' }}>👑</span>
               <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: '700', color: '#f8fafc' }}>Admin Dashboard</h1>
-              <span className="badge badge-info">Part 8: Dakkshesh</span>
+              <span className="badge badge-info">🛡️ Admin Authority</span>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span className="badge badge-success">✓ Admin Authorized</span>
@@ -47,7 +47,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* CNS Badges */}
+      {/* Security Architecture Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <span className="badge badge-info">🛡️ Authorization (RBAC)</span>
         <span className="badge badge-info">🔒 AES-256-GCM Decryption</span>
@@ -131,7 +131,7 @@ function AdminDashboard() {
         <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '0.95rem', color: '#94a3b8' }}>🔐 Security Architecture</h3>
         <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#64748b', fontSize: '0.83rem', lineHeight: '1.8' }}>
           <li>This endpoint is protected by JWT authentication + admin RBAC middleware</li>
-          <li>All votes are decrypted on-the-fly using AES-256-GCM (Part 5: Rutuja)</li>
+          <li>All votes are decrypted on-the-fly using AES-256-GCM authenticated cipher</li>
           <li>GCM authentication tags verify integrity before counting each ballot</li>
           <li>Tampered ballots fail GCM auth and are counted as "rejected" — not tallied</li>
           <li>Normal voters (role: voter) are blocked from accessing any /admin/* routes</li>
