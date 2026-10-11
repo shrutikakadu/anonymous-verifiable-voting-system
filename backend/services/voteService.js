@@ -1,54 +1,67 @@
-const crypto = require('crypto');
+'use strict';
+
 const Vote = require('../models/Vote');
 const { hashValue } = require('../crypto/sha256');
+const { encryptAES } = require('../crypto/aes');
 
-const normalizeAESKey = (secretKey) => {
-  const value = typeof secretKey === 'string' ? secretKey : String(secretKey);
-
-  if (value.length === 32) {
-    return Buffer.from(value, 'utf8');
-  }
-
-  if (value.length === 64 && /^[0-9a-fA-F]+$/.test(value)) {
-    return Buffer.from(value, 'hex');
-  }
-
-  return crypto.createHash('sha256').update(value).digest();
-};
-
-const encryptVotePayload = (votePayload, secretKey) => {
-  const iv = crypto.randomBytes(16);
-  const key = normalizeAESKey(secretKey);
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-  let encrypted = cipher.update(JSON.stringify(votePayload), 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-
-  return {
-    encryptedVote: encrypted,
-    iv: iv.toString('hex'),
-  };
-};
-
+/**
+ * Generates the SHA-256 vote receipt hash.
+ * Formula: SHA-256(encryptedVote + ":" + iv + ":" + candidateId)
+ * Exactly matches Member 7's verification formula in verificationService.js.
+ *
+ * @param {string} encryptedVote - Hex AES-GCM ciphertext
+ * @param {string} iv            - Hex IV (24 characters / 12 bytes)
+ * @param {string} candidateId   - Identifier of the selected candidate
+ * @returns {string} 64-character SHA-256 hex digest
+ */
 const generateReceipt = (encryptedVote, iv, candidateId) => {
-  const hashInput = `${encryptedVote}:${iv}:${candidateId}`;
-  return hashValue(hashInput);
+  return hashValue(`${encryptedVote}:${iv}:${candidateId}`);
 };
 
-const storeVote = async ({ encryptedVote, iv, candidateId }) => {
-  const receiptHash = generateReceipt(encryptedVote, iv, candidateId);
+/**
+ * Encrypts vote payload using Member 5's AES-256-GCM implementation.
+ * Validates secretKey is exactly 64 hexadecimal characters.
+ *
+ * @param {object|string} votePayload - The vote data to encrypt
+ * @param {string} secretKey          - 64-character hex AES key
+ * @returns {{ encryptedVote: string, iv: string, authTag: string, algorithm: string }}
+ */
+const encryptVotePayload = (votePayload, secretKey) => {
+  if (!secretKey || typeof secretKey !== 'string' || !/^[0-9a-fA-F]{64}$/.test(secretKey)) {
+    throw new Error('AES key must be exactly 64 hexadecimal characters.');
+  }
+
+  const payloadString = typeof votePayload === 'string' ? votePayload : JSON.stringify(votePayload);
+  return encryptAES(payloadString, secretKey);
+};
+
+/**
+ * Persists an encrypted vote record to MongoDB.
+ *
+ * @param {object} params
+ * @param {string} params.encryptedVote
+ * @param {string} params.iv
+ * @param {string} params.authTag
+ * @param {string} params.candidateId
+ * @param {string} [params.receiptHash]
+ * @returns {Promise<{ vote: object, receiptHash: string }>}
+ */
+const storeVote = async ({ encryptedVote, iv, authTag, candidateId, receiptHash }) => {
+  const finalReceiptHash = receiptHash || generateReceipt(encryptedVote, iv, candidateId);
 
   const vote = await Vote.create({
     encryptedVote,
     iv,
+    authTag,
     candidateId,
-    receiptHash,
+    receiptHash: finalReceiptHash,
   });
 
-  return { vote, receiptHash };
+  return { vote, receiptHash: finalReceiptHash };
 };
 
 module.exports = {
-  encryptVotePayload,
   generateReceipt,
+  encryptVotePayload,
   storeVote,
 };

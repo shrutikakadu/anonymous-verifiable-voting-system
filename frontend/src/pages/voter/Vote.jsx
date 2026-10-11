@@ -10,12 +10,14 @@ const candidates = [
 function Vote() {
   const [selected, setSelected] = useState('c1');
   const [token, setToken] = useState('');
+  const [signature, setSignature] = useState('');
   const [message, setMessage] = useState('');
 
   const handleVote = async () => {
     try {
       const result = await castVote({
         token,
+        signature,
         candidateId: selected,
         votePayload: { candidateId: selected, vote: 'yes' },
       });
@@ -29,7 +31,18 @@ function Vote() {
     <div className="container">
       <div className="card">
         <h2>Vote</h2>
-        <input placeholder="Voting token" value={token} onChange={(e) => setToken(e.target.value)} style={{ width: '100%', marginBottom: '1rem' }} />
+        <input
+          placeholder="Anonymous Voting Token (Hex)"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          style={{ width: '100%', marginBottom: '1rem' }}
+        />
+        <input
+          placeholder="RSA Token Signature (Base64)"
+          value={signature}
+          onChange={(e) => setSignature(e.target.value)}
+          style={{ width: '100%', marginBottom: '1rem' }}
+        />
         {candidates.map((candidate) => (
           <button key={candidate.id} onClick={() => setSelected(candidate.id)} style={{ margin: '0.5rem' }}>
             {candidate.name}
