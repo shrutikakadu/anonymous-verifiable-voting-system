@@ -222,3 +222,60 @@ button:disabled {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .container {
+    padding: 0 1rem;
+    margin: 1rem auto;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Additional link styles */
+a {
+  color: #38bdf8;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Code inline styles */
+code {
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  font-size: 0.88em;
+  color: #a78bfa;
+}
+
+/* Scroll smooth */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Animations for cards */
+.card {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Form label defaults */
+label {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+/* Checkbox reset */
+input[type="checkbox"] {
+  background: transparent;
+  border: 1px solid #334155;
+  padding: 0;
+  border-radius: 3px;
+}
+

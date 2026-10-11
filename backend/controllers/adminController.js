@@ -39,6 +39,8 @@ const adminDashboard = async (req, res, next) => {
     return res.json({
       message: 'Admin dashboard data',
       totalVotes: tally.totalVotes,
+      talliedVotes: tally.talliedVotes,
+      rejectedVotes: tally.rejectedVotes,
       candidateResults: tally.candidateResults,
     });
   } catch (error) {
@@ -52,7 +54,10 @@ const tallyVotes = async (req, res, next) => {
     return res.json({
       message: 'Secure tally complete',
       totalVotes: tally.totalVotes,
+      talliedVotes: tally.talliedVotes,
+      rejectedVotes: tally.rejectedVotes,
       candidateResults: tally.candidateResults,
+      votes: tally.votes,
     });
   } catch (error) {
     next(error);
