@@ -29,7 +29,7 @@ function TallyResults() {
           <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
             Secure Tally Results
           </h1>
-          <span className="badge badge-info">Part 8: Dakkshesh</span>
+          <span className="badge badge-info">📊 Decryption & Tally</span>
         </div>
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
           All votes retrieved from MongoDB, decrypted using AES-256-GCM (integrity verified via authentication tag), and tallied. Only authorized admin can run this operation.

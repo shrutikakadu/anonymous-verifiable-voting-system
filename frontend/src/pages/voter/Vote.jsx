@@ -63,14 +63,14 @@ function Vote() {
           <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
             Cast Your Vote
           </h1>
-          <span className="badge badge-info">Part 6: Vote Submission</span>
+          <span className="badge badge-info">🔒 Encrypted Ballot</span>
         </div>
         <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
           Select your candidate and submit with your anonymous RSA token. Your vote will be AES-256-GCM encrypted before storage. You will receive a SHA-256 receipt hash for verification.
         </p>
       </div>
 
-      {/* CNS Badges */}
+      {/* Security Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         <span className="badge badge-info">🛡️ RSA Token Verification</span>
         <span className="badge badge-info">🔒 AES-256-GCM Encryption</span>

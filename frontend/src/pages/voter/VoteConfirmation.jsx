@@ -90,7 +90,7 @@ function VoteConfirmation() {
         </div>
       </div>
 
-      {/* CNS Audit Info */}
+      {/* Cryptographic Receipt Audit Details */}
       <div className="card" style={{ background: '#0e1626' }}>
         <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#94a3b8' }}>
           🛡️ What This Receipt Proves
