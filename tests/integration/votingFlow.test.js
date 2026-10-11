@@ -23,7 +23,7 @@ const jwt = require('jsonwebtoken');
 const request = require('supertest');
 
 // ── Generate real RSA Keypair for server testing ────────────────────────────
-const { privateKey: serverPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
+const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding:  { type: 'spki',  format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -34,7 +34,7 @@ const signToken = (tokenStr) => {
   const signer = crypto.createSign('sha256');
   signer.update(tokenStr);
   signer.end();
-  return signer.sign(serverPrivateKey, 'base64');
+  return signer.sign(mockServerPrivateKey, 'base64');
 };
 
 const hashToken = (tokenStr) => crypto.createHash('sha256').update(tokenStr).digest('hex');
@@ -47,6 +47,9 @@ jest.mock('fs', () => {
     readFileSync: jest.fn((path, encoding) => {
       if (typeof path === 'string' && path.includes('public.pem')) {
         return mockServerPublicKey;
+      }
+      if (typeof path === 'string' && path.includes('private.pem')) {
+        return mockServerPrivateKey;
       }
       return actualFs.readFileSync(path, encoding);
     }),
@@ -376,6 +379,103 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
 
       // Must NOT blindly reset token to unused
       expect(VotingToken.updateOne).not.toHaveBeenCalled();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 6. Complete End-to-End Flow: Member 3 -> Member 4 -> Member 6 -> Replay Check
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('6. Complete Flow: Member 3 Issuance -> Member 4 Verification -> Member 6 Vote Cast -> Member 4 Replay Guard', () => {
+    it('executes full pipeline and prevents replay attack after vote is cast', async () => {
+      // Step 1: Member 3 Token Issuance
+      Voter.findById.mockResolvedValue({
+        _id: voterId,
+        otpVerified: true,
+        isEligible: true,
+        hasReceivedToken: false,
+        hasVoted: false,
+        save: jest.fn(),
+      });
+
+      Voter.findOneAndUpdate.mockResolvedValue({
+        _id: voterId,
+        hasReceivedToken: false,
+      });
+
+      let issuedTokenHash = null;
+      VotingToken.create.mockImplementation(async (doc) => {
+        issuedTokenHash = doc.tokenHash;
+        return { ...doc, _id: 'issued_token_doc_id' };
+      });
+
+      const genRes = await request(app)
+        .post('/api/token/generate')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send();
+
+      expect(genRes.status).toBe(201);
+      expect(genRes.body.token).toBeDefined();
+      expect(genRes.body.signature).toBeDefined();
+
+      const { token: issuedToken, signature: issuedSignature } = genRes.body;
+
+      // Step 2: Member 4 Pre-Vote Verification
+      VotingToken.findOne.mockResolvedValue({
+        tokenHash: issuedTokenHash,
+        used: false,
+        usedAt: null,
+      });
+
+      const verifyRes = await request(app)
+        .post('/api/token/verify')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({ token: issuedToken, signature: issuedSignature });
+
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.valid).toBe(true);
+      expect(verifyRes.body.code).toBe('VALID');
+
+      // Step 3: Member 6 Vote Cast (with Member 5 AES encryption & SHA-256 receipt)
+      VotingToken.findOneAndUpdate.mockResolvedValue({
+        tokenHash: issuedTokenHash,
+        used: true,
+        usedAt: new Date(),
+      });
+
+      Vote.create.mockResolvedValue({
+        _id: 'e2e_vote_id_123',
+        candidateId: 'c2',
+        receiptHash: 'mock_receipt_hash',
+      });
+
+      const voteRes = await request(app)
+        .post('/api/vote/cast')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({
+          token: issuedToken,
+          signature: issuedSignature,
+          candidateId: 'c2',
+        });
+
+      expect(voteRes.status).toBe(201);
+      expect(voteRes.body.message).toBe('Vote cast successfully');
+      expect(voteRes.body.receiptHash).toMatch(/^[a-f0-9]{64}$/);
+
+      // Step 4: Member 4 Replay Attack Rejection
+      VotingToken.findOne.mockResolvedValue({
+        tokenHash: issuedTokenHash,
+        used: true,
+        usedAt: new Date(),
+      });
+
+      const replayVerifyRes = await request(app)
+        .post('/api/token/verify')
+        .set('Authorization', `Bearer ${validJwt}`)
+        .send({ token: issuedToken, signature: issuedSignature });
+
+      expect(replayVerifyRes.status).toBe(409);
+      expect(replayVerifyRes.body.valid).toBe(false);
+      expect(replayVerifyRes.body.code).toBe('TOKEN_ALREADY_USED');
     });
   });
 });
