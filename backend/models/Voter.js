@@ -7,9 +7,17 @@ const voterSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true, select: false },
   isEligible: { type: Boolean, default: true },
   hasVoted: { type: Boolean, default: false },
-  hasReceivedToken: { type: Boolean, default: false }, // Part 3: prevents duplicate token issuance
-  otpCode: { type: String, default: null },
-  otpVerified: { type: Boolean, default: false },
+  hasReceivedToken: { type: Boolean, default: false },
+
+  // Registration verification is permanent; login verification is per sign-in.
+  emailVerified: { type: Boolean, default: false },
+  otpVerified: { type: Boolean, default: false }, // Used by the token-issuance module.
+  otpHash: { type: String, default: null, select: false },
+  otpPurpose: { type: String, enum: ['registration', 'login'], default: null },
+  otpExpiresAt: { type: Date, default: null },
+  otpAttempts: { type: Number, default: 0 },
+  otpLastSentAt: { type: Date, default: null },
+  otpLastPurpose: { type: String, enum: ['registration', 'login'], default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
