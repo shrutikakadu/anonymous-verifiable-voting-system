@@ -1,199 +1,113 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { castVote } from '../../services/voteService';
+import { getErrorMessage } from '../../services/voterApi';
+import { useAuth } from '../../context/AuthContext';
+import ErrorMessage from '../../components/ErrorMessage';
 
+// No candidates endpoint exists yet. Keep these ids in sync with the tally (Member 7).
 const CANDIDATES = [
-  { id: 'c1', name: 'Candidate A', party: 'Party Alpha', emoji: '🔵' },
-  { id: 'c2', name: 'Candidate B', party: 'Party Beta',  emoji: '🔴' },
-  { id: 'c3', name: 'Candidate C', party: 'Party Gamma', emoji: '🟢' },
+  { id: 'c1', name: 'Candidate A', party: 'Party Alpha' },
+  { id: 'c2', name: 'Candidate B', party: 'Party Beta' },
+  { id: 'c3', name: 'Candidate C', party: 'Party Gamma' },
 ];
 
 function Vote() {
   const navigate = useNavigate();
+  const { votingCredential, clearVotingCredential, setReceipt } = useAuth();
   const [selected, setSelected] = useState('');
-  const [token, setToken] = useState('');
-  const [signature, setSignature] = useState('');
+  const [manual, setManual] = useState({ token: '', signature: '' });
+  const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
 
-  // Pre-fill from sessionStorage (set by GetVotingToken page)
-  useEffect(() => {
-    const savedToken = sessionStorage.getItem('votingToken');
-    const savedSig = sessionStorage.getItem('votingSignature');
-    if (savedToken) setToken(savedToken);
-    if (savedSig) setSignature(savedSig);
-  }, []);
+  // Use the token from this session; otherwise let the voter paste the one they saved.
+  const token = (votingCredential ? votingCredential.token : manual.token).trim();
+  const signature = (votingCredential ? votingCredential.signature : manual.signature).trim();
+  const canSubmit = Boolean(selected && confirmed && token && signature && !loading);
 
   const handleVote = async () => {
-    if (!selected) { setError('Please select a candidate.'); return; }
-    if (!token.trim()) { setError('Voting token is required. Please get your token first.'); return; }
-    if (!signature.trim()) { setError('RSA signature is required. Please get your token first.'); return; }
+    setError('');
+    if (!canSubmit) return;
 
     setLoading(true);
-    setError('');
     try {
       const result = await castVote({
-        token: token.trim(),
-        signature: signature.trim(),
+        token,
+        signature,
         candidateId: selected,
         votePayload: { candidateId: selected },
       });
-
-      // Store receipt for confirmation page
-      sessionStorage.setItem('lastReceiptHash', result.receiptHash);
-      sessionStorage.setItem('lastVoteId', result.voteId);
-      sessionStorage.removeItem('votingToken');
-      sessionStorage.removeItem('votingSignature');
-
-      navigate('/vote-confirmation');
+      setReceipt(result.receiptHash);
+      clearVotingCredential();
+      navigate('/vote-confirmation', { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || 'Vote submission failed. Please try again.');
+      setError(getErrorMessage(err, 'Vote submission failed. Please try again.'));
       setLoading(false);
     }
   };
 
-  const selectedCandidate = CANDIDATES.find((c) => c.id === selected);
-
   return (
     <div className="container">
-      {/* Header */}
-      <div style={{ marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-          <h1 style={{ margin: 0, fontSize: '1.85rem', fontWeight: '700', color: '#f8fafc' }}>
-            Cast Your Vote
-          </h1>
-          <span className="badge badge-info">🔒 Encrypted Ballot</span>
-        </div>
-        <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.95rem' }}>
-          Select your candidate and submit with your anonymous RSA token. Your vote will be AES-256-GCM encrypted before storage. You will receive a SHA-256 receipt hash for verification.
-        </p>
-      </div>
-
-      {/* Security Badges */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-        <span className="badge badge-info">🛡️ RSA Token Verification</span>
-        <span className="badge badge-info">🔒 AES-256-GCM Encryption</span>
-        <span className="badge badge-info">📝 SHA-256 Receipt</span>
-        <span className="badge badge-success">🚫 Replay Attack Prevention</span>
-      </div>
-
-      {/* Candidate Selection */}
       <div className="card">
-        <h2 style={{ margin: '0 0 1.25rem 0', fontSize: '1.2rem', color: '#f1f5f9' }}>
-          🗳️ Select Your Candidate
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+        <h2>Cast your vote</h2>
+        <p style={{ color: '#94a3b8' }}>Your ballot is encrypted before it is stored. You get a receipt hash to verify it later.</p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
           {CANDIDATES.map((c) => (
-            <div
+            <button
               key={c.id}
+              type="button"
+              aria-pressed={selected === c.id}
               onClick={() => { setSelected(c.id); setError(''); }}
+              disabled={loading}
               style={{
+                display: 'block',
                 padding: '1.25rem',
-                borderRadius: '10px',
-                border: `2px solid ${selected === c.id ? '#38bdf8' : '#1e293b'}`,
-                background: selected === c.id ? 'rgba(56,189,248,0.1)' : '#0f172a',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
                 textAlign: 'center',
+                background: selected === c.id ? 'rgba(56,189,248,0.12)' : '#0f172a',
+                border: `2px solid ${selected === c.id ? '#38bdf8' : '#1e293b'}`,
+                boxShadow: 'none',
               }}
             >
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{c.emoji}</div>
-              <div style={{ fontWeight: '700', color: selected === c.id ? '#38bdf8' : '#f1f5f9', fontSize: '1.05rem', marginBottom: '0.25rem' }}>{c.name}</div>
-              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>{c.party}</div>
-              {selected === c.id && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <span className="badge badge-success">✓ Selected</span>
-                </div>
-              )}
-            </div>
+              <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{c.name}</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{c.party}</div>
+            </button>
           ))}
         </div>
-      </div>
 
-      {/* Token Input */}
-      <div className="card">
-        <h2 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', color: '#f1f5f9' }}>
-          🔑 Voting Token &amp; Signature
-        </h2>
-        {token && (
-          <div style={{ padding: '0.6rem 1rem', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)', marginBottom: '1rem', fontSize: '0.85rem' }}>
-            ✅ Token auto-loaded from your session
+        {votingCredential ? (
+          <div style={{ color: '#34d399', marginBottom: '1rem' }}>Voting token loaded from this session.</div>
+        ) : (
+          <div style={{ marginBottom: '1rem' }}>
+            <p style={{ color: '#fbbf24' }}>
+              No token in this session. Paste the token and signature you saved
+              (or <button type="button" className="btn-outline" onClick={() => navigate('/token')}>get your token</button>).
+            </p>
+            <label>Voting token (hex)</label>
+            <input className="mono" value={manual.token} onChange={(e) => setManual((m) => ({ ...m, token: e.target.value }))} disabled={loading} />
+            <label style={{ marginTop: '0.75rem' }}>RSA signature (base64)</label>
+            <input className="mono" value={manual.signature} onChange={(e) => setManual((m) => ({ ...m, signature: e.target.value }))} disabled={loading} />
           </div>
         )}
 
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-            Voting Token (Hex)
-          </label>
-          <input
-            className="mono"
-            placeholder="Paste your 64-character anonymous voting token..."
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            style={{ width: '100%', fontSize: '0.85rem' }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-            RSA Signature (Base64)
-          </label>
-          <input
-            className="mono"
-            placeholder="Paste the RSA signature received with your token..."
-            value={signature}
-            onChange={(e) => setSignature(e.target.value)}
-            style={{ width: '100%', fontSize: '0.85rem' }}
-          />
-        </div>
-      </div>
-
-      {/* Confirm + Submit */}
-      <div className="card">
-        {selectedCandidate && (
-          <div style={{ padding: '1rem', borderRadius: '8px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <span style={{ fontSize: '2rem' }}>{selectedCandidate.emoji}</span>
-            <div>
-              <div style={{ fontWeight: '600', color: '#f1f5f9' }}>You are voting for: {selectedCandidate.name}</div>
-              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>{selectedCandidate.party}</div>
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
           <input
             type="checkbox"
             id="confirm-vote"
             checked={confirmed}
             onChange={(e) => setConfirmed(e.target.checked)}
-            style={{ width: '18px', height: '18px', cursor: 'pointer', padding: 0, accentColor: '#38bdf8' }}
+            disabled={loading}
+            style={{ width: '18px', height: '18px', padding: 0 }}
           />
-          <label htmlFor="confirm-vote" style={{ color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer' }}>
-            I confirm this is my final vote. I understand this action is irreversible.
-          </label>
+          <label htmlFor="confirm-vote" style={{ margin: 0 }}>I confirm this is my final vote. It cannot be changed.</label>
         </div>
 
-        {error && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.3)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-            ⚠️ {error}
-          </div>
-        )}
+        <ErrorMessage message={error} />
 
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={handleVote}
-            disabled={loading || !confirmed || !selected || !token.trim() || !signature.trim()}
-            style={{ flex: 1, minWidth: '200px', padding: '0.85rem', fontSize: '1rem', fontWeight: '600' }}
-          >
-            {loading ? '⏳ Submitting...' : '🗳️ Submit My Vote'}
-          </button>
-          <button
-            className="btn-secondary"
-            onClick={() => navigate('/token')}
-            style={{ minWidth: '150px' }}
-          >
-            ← Get Token
-          </button>
+        <div style={{ marginTop: '1rem' }}>
+          <button type="button" onClick={handleVote} disabled={!canSubmit}>{loading ? 'Submitting...' : 'Submit my vote'}</button>{' '}
+          <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard')} disabled={loading}>Dashboard</button>
         </div>
       </div>
     </div>
