@@ -22,10 +22,14 @@ const jwt = require('jsonwebtoken');
 jest.mock('../../backend/models/VotingToken');
 jest.mock('../../backend/models/Voter');
 jest.mock('../../backend/models/Vote');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
 
 const VotingToken = require('../../backend/models/VotingToken');
 const Voter = require('../../backend/models/Voter');
 const Vote = require('../../backend/models/Vote');
+const RevokedToken = require('../../backend/models/RevokedToken');
 
 // ── Real RSA key pair for testing (prefixed with mock for Jest scope) ────────
 const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
@@ -72,7 +76,7 @@ describe('Security Tests: Token Reuse and Double-Voting Prevention', () => {
 
   beforeAll(() => {
     process.env.AES_SECRET_KEY = validAesKey;
-    voterJwt = jwt.sign({ sub: testVoterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    voterJwt = jwt.sign({ sub: testVoterId, role: 'voter', otp: true }, jwtSecret, { expiresIn: '1h' });
   });
 
   beforeEach(() => {
@@ -86,6 +90,7 @@ describe('Security Tests: Token Reuse and Double-Voting Prevention', () => {
       save: jest.fn(),
     });
     Vote.findOne.mockResolvedValue(null);
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
   // ───────────────────────────────────────────────────────────────────────────

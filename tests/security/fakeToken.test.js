@@ -23,10 +23,14 @@ const jwt = require('jsonwebtoken');
 jest.mock('../../backend/models/VotingToken');
 jest.mock('../../backend/models/Voter');
 jest.mock('../../backend/models/Vote');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
 
 const VotingToken = require('../../backend/models/VotingToken');
 const Voter = require('../../backend/models/Voter');
 const Vote = require('../../backend/models/Vote');
+const RevokedToken = require('../../backend/models/RevokedToken');
 
 // ── Generate real RSA key pairs for testing (prefixed with mock for Jest scope) ──
 const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
@@ -81,13 +85,14 @@ describe('Security Tests: Forged, Fake, Tampered & Unissued Voting Token Rejecti
 
   beforeAll(() => {
     process.env.AES_SECRET_KEY = validAesKey;
-    validJwt = jwt.sign({ sub: voterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    validJwt = jwt.sign({ sub: voterId, role: 'voter', otp: true }, jwtSecret, { expiresIn: '1h' });
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
     Voter.findById.mockResolvedValue({ _id: voterId, hasVoted: false, save: jest.fn() });
     Vote.findOne.mockResolvedValue(null);
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
