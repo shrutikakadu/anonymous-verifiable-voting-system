@@ -1,0 +1,78 @@
+/* Voter UI kit (Member 9). Builds on the CSS variables and classes already defined in index.css. */
+
+.v-main { flex: 1; }
+.v-muted { color: var(--text-muted); }
+.v-dim { color: var(--text-dim); }
+.v-label { color: #94a3b8; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.4rem; display: block; }
+
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.v-icon { width: 1.1em; height: 1.1em; flex-shrink: 0; vertical-align: -0.15em; }
+
+/* Page header */
+.v-header { margin-bottom: 1.5rem; }
+.v-header h1 { margin: 0 0 0.35rem; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; }
+.v-header p { margin: 0; color: var(--text-muted); }
+.v-header-badges { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.9rem; }
+
+/* Alerts */
+.v-alert { display: flex; gap: 0.75rem; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1px solid; margin: 0 0 1.25rem; font-size: 0.92rem; line-height: 1.5; }
+.v-alert strong { display: block; margin-bottom: 0.15rem; }
+.v-alert .v-icon { margin-top: 0.2rem; }
+.v-alert--info { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.3); color: #bae6fd; }
+.v-alert--success { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+.v-alert--warning { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3); color: #fcd34d; }
+.v-alert--danger { background: rgba(244, 63, 94, 0.08); border-color: rgba(244, 63, 94, 0.3); color: #fda4af; }
+
+/* Progress stepper */
+.v-stepper { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; }
+.v-step { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 12px; border: 1px solid var(--border-subtle); background: rgba(10, 16, 30, 0.5); color: var(--text-dim); font-size: 0.85rem; font-weight: 600; }
+.v-step-dot { width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; font-size: 0.75rem; border: 1px solid currentColor; flex-shrink: 0; }
+.v-step--done { color: #6ee7b7; border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.06); }
+.v-step--current { color: var(--accent-blue); border-color: rgba(56, 189, 248, 0.5); background: rgba(56, 189, 248, 0.1); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.08); }
+
+/* Status tiles */
+.v-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.v-tile { padding: 1.1rem 1.25rem; border-radius: 14px; border: 1px solid var(--border-subtle); background: rgba(13, 21, 39, 0.7); }
+.v-tile-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+.v-tile-value { font-size: 1.25rem; font-weight: 700; }
+.v-tile-note { margin-top: 0.35rem; font-size: 0.8rem; color: var(--text-dim); }
+
+/* Candidates */
+.v-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+.v-candidate { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 1.4rem 1rem; text-align: center; border-radius: 14px; background: #0f172a; border: 2px solid #1e293b; box-shadow: none; color: var(--text-main); }
+.v-candidate:hover:not(:disabled) { background: #131c33; border-color: rgba(56, 189, 248, 0.45); transform: none; box-shadow: none; }
+.v-candidate[aria-pressed="true"] { border-color: var(--accent-blue); background: rgba(56, 189, 248, 0.1); }
+.v-avatar { width: 3.2rem; height: 3.2rem; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(99, 102, 241, 0.35)); border: 1px solid rgba(255, 255, 255, 0.12); }
+.v-candidate-name { font-weight: 700; font-size: 1.05rem; }
+.v-candidate-party { color: var(--text-muted); font-size: 0.85rem; }
+.v-candidate-check { position: absolute; top: 0.7rem; right: 0.7rem; color: var(--accent-blue); }
+
+/* Copy field */
+.v-copy { margin-bottom: 1rem; }
+.v-copy-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.v-copy-value { flex: 1; min-width: 0; padding: 0.65rem 0.85rem; border-radius: 10px; background: #0b1220; border: 1px solid #1e293b; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; word-break: break-all; line-height: 1.5; }
+.v-btn-sm { padding: 0.45rem 0.8rem; font-size: 0.8rem; white-space: nowrap; }
+
+/* Layout helpers */
+.v-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+.v-list { margin: 0; padding-left: 1.2rem; color: var(--text-muted); font-size: 0.9rem; line-height: 1.8; }
+
+/* Modal */
+.v-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 15, 0.7); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 200; padding: 1rem; }
+.v-modal { width: 100%; max-width: 440px; border-radius: 16px; padding: 1.5rem; background: #0d1527; border: 1px solid var(--border-subtle); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+.v-modal h2 { margin: 0 0 0.5rem; font-size: 1.2rem; }
+.v-modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.25rem; }
+
+/* Loading */
+.v-spinner { width: 1em; height: 1em; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); border-top-color: #fff; animation: v-spin 0.7s linear infinite; display: inline-block; }
+@keyframes v-spin { to { transform: rotate(360deg); } }
+.v-skeleton { border-radius: 10px; margin-bottom: 0.75rem; background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)); background-size: 200% 100%; animation: v-shimmer 1.4s ease-in-out infinite; }
+@keyframes v-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .v-spinner, .v-skeleton { animation: none; }
+}

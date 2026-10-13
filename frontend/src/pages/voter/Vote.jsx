@@ -3,9 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { castVote } from '../../services/voteService';
 import { getErrorMessage } from '../../services/voterApi';
 import { useAuth } from '../../context/AuthContext';
-import ErrorMessage from '../../components/ErrorMessage';
+import { buildSteps } from '../../utils/progress';
+import PageHeader from '../../components/ui/PageHeader';
+import Alert from '../../components/ui/Alert';
+import Stepper from '../../components/ui/Stepper';
+import ConfirmModal from '../../components/ui/ConfirmModal';
+import Icon from '../../components/ui/Icon';
 
-// No candidates endpoint exists yet. Keep these ids in sync with the tally (Member 7).
+// No candidates endpoint exists yet. Keep these ids in sync with the tally.
 const CANDIDATES = [
   { id: 'c1', name: 'Candidate A', party: 'Party Alpha' },
   { id: 'c2', name: 'Candidate B', party: 'Party Beta' },
@@ -17,19 +22,19 @@ function Vote() {
   const { votingCredential, clearVotingCredential, setReceipt } = useAuth();
   const [selected, setSelected] = useState('');
   const [manual, setManual] = useState({ token: '', signature: '' });
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Use the token from this session; otherwise let the voter paste the one they saved.
   const token = (votingCredential ? votingCredential.token : manual.token).trim();
   const signature = (votingCredential ? votingCredential.signature : manual.signature).trim();
-  const canSubmit = Boolean(selected && confirmed && token && signature && !loading);
+  const hasToken = Boolean(token && signature);
+  const selectedCandidate = CANDIDATES.find((c) => c.id === selected);
 
   const handleVote = async () => {
+    if (!selected || !hasToken || loading) return;
     setError('');
-    if (!canSubmit) return;
-
     setLoading(true);
     try {
       const result = await castVote({
@@ -42,6 +47,7 @@ function Vote() {
       clearVotingCredential();
       navigate('/vote-confirmation', { replace: true });
     } catch (err) {
+      setConfirmOpen(false);
       setError(getErrorMessage(err, 'Vote submission failed. Please try again.'));
       setLoading(false);
     }
@@ -49,67 +55,76 @@ function Vote() {
 
   return (
     <div className="container">
-      <div className="card">
-        <h2>Cast your vote</h2>
-        <p style={{ color: '#94a3b8' }}>Your ballot is encrypted before it is stored. You get a receipt hash to verify it later.</p>
+      <PageHeader title="Cast your vote" subtitle="Your ballot is encrypted before it is stored. You get a receipt hash to verify it later.">
+        <span className="badge badge-info">AES-256-GCM</span>
+        <span className="badge badge-info">SHA-256 receipt</span>
+      </PageHeader>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', margin: '1.25rem 0' }}>
+      <Stepper steps={buildSteps({ tokenIssued: hasToken, hasVoted: false })} />
+
+      {votingCredential ? (
+        <Alert tone="success" title="Voting token loaded">The token from this session will be used for your ballot.</Alert>
+      ) : (
+        <div className="card">
+          <Alert tone="warning" title="No token in this session">
+            Paste the token and signature you saved, or get your token first.
+          </Alert>
+          <span className="v-label">Voting token (hex)</span>
+          <input className="mono" value={manual.token} onChange={(e) => setManual((m) => ({ ...m, token: e.target.value }))} disabled={loading} autoComplete="off" />
+          <span className="v-label" style={{ marginTop: '0.9rem' }}>RSA signature (base64)</span>
+          <input className="mono" value={manual.signature} onChange={(e) => setManual((m) => ({ ...m, signature: e.target.value }))} disabled={loading} autoComplete="off" />
+          <div className="v-actions">
+            <button type="button" className="btn-secondary" onClick={() => navigate('/token')}>Get my token</button>
+          </div>
+        </div>
+      )}
+
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Select your candidate</h2>
+        <div className="v-candidates">
           {CANDIDATES.map((c) => (
             <button
               key={c.id}
               type="button"
+              className="v-candidate"
               aria-pressed={selected === c.id}
               onClick={() => { setSelected(c.id); setError(''); }}
               disabled={loading}
-              style={{
-                display: 'block',
-                padding: '1.25rem',
-                textAlign: 'center',
-                background: selected === c.id ? 'rgba(56,189,248,0.12)' : '#0f172a',
-                border: `2px solid ${selected === c.id ? '#38bdf8' : '#1e293b'}`,
-                boxShadow: 'none',
-              }}
             >
-              <div style={{ fontWeight: 700, fontSize: '1.05rem' }}>{c.name}</div>
-              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{c.party}</div>
+              {selected === c.id && <span className="v-candidate-check"><Icon name="check" /></span>}
+              <span className="v-avatar">{c.name.slice(-1)}</span>
+              <span className="v-candidate-name">{c.name}</span>
+              <span className="v-candidate-party">{c.party}</span>
             </button>
           ))}
         </div>
 
-        {votingCredential ? (
-          <div style={{ color: '#34d399', marginBottom: '1rem' }}>Voting token loaded from this session.</div>
-        ) : (
-          <div style={{ marginBottom: '1rem' }}>
-            <p style={{ color: '#fbbf24' }}>
-              No token in this session. Paste the token and signature you saved
-              (or <button type="button" className="btn-outline" onClick={() => navigate('/token')}>get your token</button>).
-            </p>
-            <label>Voting token (hex)</label>
-            <input className="mono" value={manual.token} onChange={(e) => setManual((m) => ({ ...m, token: e.target.value }))} disabled={loading} />
-            <label style={{ marginTop: '0.75rem' }}>RSA signature (base64)</label>
-            <input className="mono" value={manual.signature} onChange={(e) => setManual((m) => ({ ...m, signature: e.target.value }))} disabled={loading} />
-          </div>
-        )}
+        {error && <Alert tone="danger" title="Your vote was not submitted">{error}</Alert>}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
-          <input
-            type="checkbox"
-            id="confirm-vote"
-            checked={confirmed}
-            onChange={(e) => setConfirmed(e.target.checked)}
-            disabled={loading}
-            style={{ width: '18px', height: '18px', padding: 0 }}
-          />
-          <label htmlFor="confirm-vote" style={{ margin: 0 }}>I confirm this is my final vote. It cannot be changed.</label>
-        </div>
-
-        <ErrorMessage message={error} />
-
-        <div style={{ marginTop: '1rem' }}>
-          <button type="button" onClick={handleVote} disabled={!canSubmit}>{loading ? 'Submitting...' : 'Submit my vote'}</button>{' '}
+        <div className="v-actions">
+          <button type="button" onClick={() => setConfirmOpen(true)} disabled={!selected || !hasToken || loading}>
+            Review and submit
+          </button>
           <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard')} disabled={loading}>Dashboard</button>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmOpen}
+        title="Confirm your vote"
+        confirmLabel="Cast my vote"
+        busyLabel="Submitting..."
+        busy={loading}
+        onConfirm={handleVote}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        {selectedCandidate && (
+          <p style={{ margin: 0 }}>
+            You are voting for <strong style={{ color: '#f8fafc' }}>{selectedCandidate.name}</strong> ({selectedCandidate.party}).
+            This cannot be changed.
+          </p>
+        )}
+      </ConfirmModal>
     </div>
   );
 }

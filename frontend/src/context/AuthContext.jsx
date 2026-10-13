@@ -120,6 +120,7 @@ export function AuthProvider({ children }) {
       session,
       isAuthenticated: Boolean(session),
       voterId: session ? session.voterId : null,
+      expiresAt: session ? getExpiryMs(session.token) : 0,
       login,
       logout,
       votingCredential: mine(credential),
