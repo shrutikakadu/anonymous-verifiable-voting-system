@@ -60,6 +60,9 @@ jest.mock('fs', () => {
 jest.mock('../../backend/models/VotingToken');
 jest.mock('../../backend/models/Vote');
 jest.mock('../../backend/models/Voter');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(null),
+}));
 
 const VotingToken = require('../../backend/models/VotingToken');
 const Vote = require('../../backend/models/Vote');
@@ -78,7 +81,11 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
 
   beforeAll(() => {
     process.env.AES_SECRET_KEY = validAesKey;
-    validJwt = jwt.sign({ sub: voterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    validJwt = jwt.sign(
+  { sub: voterId, role: 'voter', otp: true },
+  jwtSecret,
+  { expiresIn: '1h' }
+);
   });
 
   beforeEach(() => {

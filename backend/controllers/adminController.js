@@ -1,7 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
-const Vote = require('../models/Vote');
 const { jwtSecret } = require('../config/keys');
 const { getTallyResults } = require('../services/tallyService');
 
@@ -48,20 +47,22 @@ const adminDashboard = async (req, res, next) => {
   }
 };
 
+
 const tallyVotes = async (req, res, next) => {
   try {
     const tally = await getTallyResults();
+
     return res.json({
       message: 'Secure tally complete',
       totalVotes: tally.totalVotes,
       talliedVotes: tally.talliedVotes,
       rejectedVotes: tally.rejectedVotes,
-      candidateResults: tally.candidateResults,
-      votes: tally.votes,
+      candidateResults: tally.candidateResults
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 module.exports = { adminLogin, adminDashboard, tallyVotes };
