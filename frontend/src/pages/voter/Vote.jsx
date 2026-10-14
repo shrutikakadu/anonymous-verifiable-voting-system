@@ -120,7 +120,7 @@ function Vote() {
       >
         {selectedCandidate && (
           <p style={{ margin: 0 }}>
-            You are voting for <strong style={{ color: '#e8edf4' }}>{selectedCandidate.name}</strong> ({selectedCandidate.party}).
+            You are voting for <strong style={{ color: 'var(--tx)' }}>{selectedCandidate.name}</strong> ({selectedCandidate.party}).
             This cannot be changed.
           </p>
         )}

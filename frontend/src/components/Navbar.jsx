@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { clearAuth } from '../utils/tokenStorage';
+import ThemeToggle from './ThemeToggle';
 
 function Navbar() {
   const location = useLocation();
@@ -21,12 +22,12 @@ function Navbar() {
   const linkStyle = (path) => {
     const active = location.pathname === path;
     return {
-      color: active ? '#fff' : 'var(--text-muted)',
+      color: active ? 'var(--tx)' : 'var(--mu)',
       textDecoration: 'none',
       fontSize: '0.9rem',
       fontWeight: active ? 600 : 500,
       padding: '0.3rem 0',
-      borderBottom: active ? '2px solid var(--accent-blue)' : '2px solid transparent',
+      borderBottom: active ? '2px solid var(--ac)' : '2px solid transparent',
     };
   };
 
@@ -86,8 +87,10 @@ function Navbar() {
         )}
 
         {!isAuthenticated && !isAdmin && (
-          <Link to="/admin/login" style={{ ...linkStyle('/admin/login'), color: 'var(--text-dim)' }}>Admin</Link>
+          <Link to="/admin/login" style={{ ...linkStyle('/admin/login'), color: 'var(--dim)' }}>Admin</Link>
         )}
+
+        <ThemeToggle />
       </div>
     </nav>
   );

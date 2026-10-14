@@ -1,0 +1,43 @@
+/*
+  Compatibility layer for pages that hardcode dark colours in inline styles
+  (Bulletin Board, Verify Vote, Admin pages, Register, error text).
+  Inline styles normally beat stylesheets, so each rule matches the colour the browser writes into the
+  style attribute and replaces it with a theme variable using !important.
+  This file touches no one else's code. When a page owner switches a colour to var(--tx) etc., the matching
+  rule here simply stops matching. Delete this file once nothing hardcodes colours any more.
+*/
+
+/* text */
+[style*="color: rgb(248, 250, 252)"], [style*="color: rgb(241, 245, 249)"], [style*="color: rgb(226, 232, 240)"] { color: var(--tx) !important; }
+[style*="color: rgb(148, 163, 184)"] { color: var(--mu) !important; }
+[style*="color: rgb(100, 116, 139)"], [style*="color: rgb(71, 85, 105)"] { color: var(--dim) !important; }
+[style*="color: rgb(56, 189, 248)"], [style*="color: rgb(96, 165, 250)"] { color: var(--pr) !important; }
+[style*="color: rgb(52, 211, 153)"] { color: var(--ok) !important; }
+[style*="color: rgb(248, 113, 113)"], [style*="color: crimson"] { color: var(--bad) !important; }
+[style*="color: rgb(251, 191, 36)"] { color: var(--warn) !important; }
+[style*="color: rgb(167, 139, 250)"], [style*="color: rgb(192, 132, 252)"] { color: var(--ac) !important; }
+
+/* inner surfaces */
+[style*="background: rgb(15, 23, 42)"], [style*="background: rgb(14, 22, 38)"], [style*="background: rgb(19, 27, 46)"],
+[style*="background: rgba(15, 23, 42"], [style*="background: rgba(14, 22, 38"] { background: var(--sf2) !important; }
+[style*="background: rgb(30, 41, 59)"] { background: var(--ln) !important; }
+[style*="background: rgba(56, 189, 248"] { background: var(--pr-bg) !important; }
+
+/* gradients: banners become flat surfaces, bars become solid fills */
+[style*="linear-gradient(135deg"] { background: var(--sf) !important; }
+[style*="linear-gradient(90deg"] { background: var(--ac) !important; }
+[style*="linear-gradient(90deg, rgb(51, 65, 85)"] { background: var(--dim) !important; }
+[style*="background: rgb(124, 58, 237)"] { background: var(--pr) !important; color: var(--on) !important; }
+
+/* status boxes */
+[style*="background: rgba(239, 68, 68"] { background: var(--bad-bg) !important; }
+[style*="background: rgba(16, 185, 129"] { background: var(--ok-bg) !important; }
+[style*="background: rgba(245, 158, 11"] { background: var(--warn-bg) !important; }
+[style*="rgba(239, 68, 68, 0.3)"] { border-color: var(--bad-ln) !important; }
+[style*="rgba(16, 185, 129, 0.3)"] { border-color: var(--ok-ln) !important; }
+[style*="rgba(245, 158, 11, 0.3)"] { border-color: var(--warn-ln) !important; }
+
+/* borders */
+[style*="solid rgb(30, 41, 59)"], [style*="rgba(255, 255, 255, 0.1)"] { border-color: var(--ln) !important; }
+[style*="rgba(167, 139, 250, 0.3)"], [style*="rgba(167, 139, 250, 0.25)"],
+[style*="solid rgba(56, 189, 248"] { border-color: var(--ln-strong) !important; }
