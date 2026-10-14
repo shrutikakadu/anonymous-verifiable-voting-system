@@ -52,18 +52,16 @@ const getTallyResults = async () => {
 
       const candidateId = payload.candidateId;
 
-      if (
-        typeof candidateId !== 'string' ||
-        candidateId.trim().length === 0 ||
-        candidateId.length > 100
-      ) {
-        throw new Error('Invalid candidate ID in decrypted vote.');
-      }
+// Only accept the three configured candidates.
+// Never fall back to the plaintext database candidateId.
+if (!['c1', 'c2', 'c3'].includes(candidateId)) {
+  throw new Error('Invalid candidate ID in decrypted vote.');
+}
 
-      candidateCounts.set(
-        candidateId,
-        (candidateCounts.get(candidateId) || 0) + 1
-      );
+candidateCounts.set(
+  candidateId,
+  (candidateCounts.get(candidateId) || 0) + 1
+);
     } catch {
       // Do not count ballots that fail decryption or payload validation.
       rejectedVotes += 1;
