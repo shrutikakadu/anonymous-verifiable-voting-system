@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Icon from './Icon';
 
 // secret=true hides the value until the user clicks Show (protects against shoulder surfing).
 function CopyField({ label, value, secret = false }) {
@@ -29,7 +28,6 @@ function CopyField({ label, value, secret = false }) {
           </button>
         )}
         <button type="button" className="btn-secondary v-btn-sm" onClick={handleCopy}>
-          <Icon name="copy" />
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>

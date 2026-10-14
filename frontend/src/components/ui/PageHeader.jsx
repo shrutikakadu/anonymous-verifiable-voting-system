@@ -1,9 +1,9 @@
-function PageHeader({ title, subtitle, children }) {
+function PageHeader({ eyebrow, title, subtitle }) {
   return (
     <header className="v-header">
+      {eyebrow && <p className="v-eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
-      {subtitle && <p>{subtitle}</p>}
-      {children && <div className="v-header-badges">{children}</div>}
+      {subtitle && <p className="v-sub">{subtitle}</p>}
     </header>
   );
 }

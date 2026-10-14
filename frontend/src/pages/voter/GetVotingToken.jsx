@@ -3,13 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { generateVotingToken } from '../../services/tokenService';
 import { getErrorMessage } from '../../services/voterApi';
 import { useAuth } from '../../context/AuthContext';
-import { buildSteps } from '../../utils/progress';
 import PageHeader from '../../components/ui/PageHeader';
 import Alert from '../../components/ui/Alert';
-import Stepper from '../../components/ui/Stepper';
 import CopyField from '../../components/ui/CopyField';
 import Spinner from '../../components/ui/Spinner';
-import Icon from '../../components/ui/Icon';
 
 function GetVotingToken() {
   const navigate = useNavigate();
@@ -56,20 +53,16 @@ function GetVotingToken() {
   return (
     <div className="container">
       <PageHeader
-        title="Anonymous voting token"
-        subtitle="A random token signed by the server. It is not linked to your voter record."
-      >
-        <span className="badge badge-info">RSA signed</span>
-        <span className="badge badge-success">One per voter</span>
-      </PageHeader>
+        eyebrow="Step 2 of 5"
+        title="Voting token"
+        subtitle="A random token, signed by the server with its private key. It is not linked to your voter record."
+      />
 
-      <Stepper steps={buildSteps({ tokenIssued: Boolean(votingCredential), hasVoted: false })} />
-
-      <div className="card">
+      <div className="card" style={{ maxWidth: '720px' }}>
         {!votingCredential ? (
           <>
-            <p className="v-muted" style={{ marginTop: 0 }}>
-              You can request your token once. After you get it, save a copy before you continue.
+            <p style={{ marginTop: 0 }}>
+              You can request your token once. When you have it, save a copy before you continue.
             </p>
             {error && <Alert tone="danger" title="Could not get a token">{error}</Alert>}
             <button type="button" onClick={handleGenerate} disabled={loading}>
@@ -84,8 +77,8 @@ function GetVotingToken() {
             <CopyField label="Voting token" value={votingCredential.token} secret />
             <CopyField label="RSA signature" value={votingCredential.signature} secret />
             <div className="v-actions">
-              <button type="button" onClick={() => navigate('/vote')}>Continue to ballot</button>
-              <button type="button" className="btn-secondary" onClick={handleDownload}><Icon name="download" /> Download backup</button>
+              <button type="button" onClick={() => navigate('/vote')}>Continue to the ballot</button>
+              <button type="button" className="btn-secondary" onClick={handleDownload}>Download backup</button>
               <button type="button" className="btn-secondary" onClick={() => navigate('/dashboard')}>Dashboard</button>
             </div>
           </>
