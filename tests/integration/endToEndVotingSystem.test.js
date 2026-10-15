@@ -36,11 +36,15 @@ jest.mock('../../backend/models/Voter');
 jest.mock('../../backend/models/VotingToken');
 jest.mock('../../backend/models/Vote');
 jest.mock('../../backend/models/Admin');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
 
 const Voter = require('../../backend/models/Voter');
 const VotingToken = require('../../backend/models/VotingToken');
 const Vote = require('../../backend/models/Vote');
 const Admin = require('../../backend/models/Admin');
+const RevokedToken = require('../../backend/models/RevokedToken');
 
 // ── Real RSA Server Key Pair Generation for System Test ──────────────────────
 const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
@@ -68,12 +72,18 @@ jest.mock('fs', () => {
 // Mock OTP service email sender so no real SMTP connection is attempted
 jest.mock('../../backend/services/otpService', () => {
   const actualOtpService = jest.requireActual('../../backend/services/otpService');
+  const mockBcrypt = require('bcryptjs');
   return {
     ...actualOtpService,
-    createOTPForVoter: jest.fn(async (voter) => {
-      voter.otpCode = '719304';
-      voter.otpVerified = false;
-      return '719304';
+    createOTPForVoter: jest.fn(async (voter, purpose) => {
+      const code = '719304';
+      voter.otpHash = await mockBcrypt.hash(code, 10);
+      voter.otpPurpose = purpose;
+      voter.otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      voter.otpAttempts = 0;
+      if (purpose === 'login') voter.otpVerified = false;
+      if (voter.save) await voter.save();
+      return code;
     }),
   };
 });
@@ -104,6 +114,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
 
   beforeEach(() => {
     jest.clearAllMocks();
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -123,11 +134,12 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
         voterId: doc.voterId,
         email: doc.email,
         passwordHash: doc.passwordHash,
-        otpCode: '719304',
+        emailVerified: false,
         otpVerified: false,
         isEligible: true,
         hasVoted: false,
         hasReceivedToken: false,
+        save: jest.fn().mockResolvedValue(true),
       };
     });
 
@@ -141,7 +153,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
       });
 
     expect(res.status).toBe(201);
-    expect(res.body.message).toContain('Registration successful');
+    expect(res.body.message).toContain('Registration saved');
     expect(res.body.voter.voterId).toBe(voterId);
 
     // Verify bcrypt hash was computed and stored (never plaintext)
@@ -154,7 +166,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
   // ───────────────────────────────────────────────────────────────────────────
   // STAGE 2: Voter Login
   // ───────────────────────────────────────────────────────────────────────────
-  test('Step 2 [Auth]: Voter authenticates with voterId and password and obtains a JWT session', async () => {
+  test('Step 2 [Auth]: Voter authenticates with voterId and password and triggers MFA login OTP', async () => {
     const passwordHash = await bcrypt.hash(rawPassword, 10);
 
     const mockVoterDoc = {
@@ -162,11 +174,12 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
       voterId,
       email,
       passwordHash,
-      otpCode: '719304',
+      emailVerified: true,
       otpVerified: false,
       isEligible: true,
       hasVoted: false,
       hasReceivedToken: false,
+      save: jest.fn().mockResolvedValue(true),
     };
 
     Voter.findOne.mockReturnValue({
@@ -181,8 +194,48 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
       });
 
     expect(res.status).toBe(200);
+    expect(res.body.message).toContain('Password verified. Login OTP sent.');
+    expect(res.body.voter.voterId).toBe(voterId);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // STAGE 3: OTP Verification
+  // ───────────────────────────────────────────────────────────────────────────
+  test('Step 3 [MFA]: Voter submits OTP to complete authentication and obtain active JWT session', async () => {
+    const correctOtp = '719304';
+    const otpHash = await bcrypt.hash(correctOtp, 10);
+    const mockVoterDoc = {
+      _id: voterMongoId,
+      voterId,
+      emailVerified: true,
+      otpHash,
+      otpPurpose: 'login',
+      otpExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      otpAttempts: 0,
+      otpVerified: false,
+      save: jest.fn().mockImplementation(function () {
+        return Promise.resolve(this);
+      }),
+    };
+
+    Voter.findOne.mockReturnValue({
+      select: jest.fn().mockResolvedValue(mockVoterDoc),
+    });
+
+    const res = await request(app)
+      .post('/api/auth/verify-otp')
+      .send({
+        voterId,
+        otpCode: correctOtp,
+        purpose: 'login',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('verified');
     expect(res.body.token).toBeDefined();
-    expect(res.body.message).toContain('Login successful. OTP verification required.');
+    expect(mockVoterDoc.otpVerified).toBe(true);
+    expect(mockVoterDoc.otpHash).toBeNull(); // Cleared to prevent replay
+    expect(mockVoterDoc.save).toHaveBeenCalled();
 
     voterJwt = res.body.token;
 
@@ -191,34 +244,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
     expect(decoded.sub).toBe(voterMongoId);
     expect(decoded.role).toBe('voter');
     expect(decoded.voterId).toBe(voterId);
-  });
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // STAGE 3: OTP Verification
-  // ───────────────────────────────────────────────────────────────────────────
-  test('Step 3 [MFA]: Voter submits OTP to complete authentication before voting session activation', async () => {
-    const mockVoterDoc = {
-      _id: voterMongoId,
-      voterId,
-      otpCode: '719304',
-      otpVerified: false,
-      save: jest.fn().mockResolvedValue(true),
-    };
-
-    Voter.findOne.mockResolvedValue(mockVoterDoc);
-
-    const res = await request(app)
-      .post('/api/auth/verify-otp')
-      .send({
-        voterId,
-        otpCode: '719304',
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('verified');
-    expect(mockVoterDoc.otpVerified).toBe(true);
-    expect(mockVoterDoc.otpCode).toBeNull(); // Cleared to prevent replay
-    expect(mockVoterDoc.save).toHaveBeenCalled();
+    expect(decoded.otp).toBe(true);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
