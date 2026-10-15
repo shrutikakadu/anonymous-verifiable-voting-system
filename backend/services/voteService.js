@@ -6,16 +6,16 @@ const { encryptAES } = require('../crypto/aes');
 
 /**
  * Generates the SHA-256 vote receipt hash.
- * Formula: SHA-256(encryptedVote + ":" + iv + ":" + candidateId)
+ * Formula: SHA-256(encryptedVote + ":" + iv + ":" + authTag)
  * Exactly matches Member 7's verification formula in verificationService.js.
  *
  * @param {string} encryptedVote - Hex AES-GCM ciphertext
  * @param {string} iv            - Hex IV (24 characters / 12 bytes)
- * @param {string} candidateId   - Identifier of the selected candidate
+ * @param {string} authTag       - Hex AES-GCM authentication tag (32 characters / 16 bytes)
  * @returns {string} 64-character SHA-256 hex digest
  */
-const generateReceipt = (encryptedVote, iv, candidateId) => {
-  return hashValue(`${encryptedVote}:${iv}:${candidateId}`);
+const generateReceipt = (encryptedVote, iv, authTag) => {
+  return hashValue(`${encryptedVote}:${iv}:${authTag}`);
 };
 
 /**
@@ -42,18 +42,16 @@ const encryptVotePayload = (votePayload, secretKey) => {
  * @param {string} params.encryptedVote
  * @param {string} params.iv
  * @param {string} params.authTag
- * @param {string} params.candidateId
  * @param {string} [params.receiptHash]
  * @returns {Promise<{ vote: object, receiptHash: string }>}
  */
-const storeVote = async ({ encryptedVote, iv, authTag, candidateId, receiptHash }) => {
-  const finalReceiptHash = receiptHash || generateReceipt(encryptedVote, iv, candidateId);
+const storeVote = async ({ encryptedVote, iv, authTag, receiptHash }) => {
+  const finalReceiptHash = receiptHash || generateReceipt(encryptedVote, iv, authTag);
 
   const vote = await Vote.create({
     encryptedVote,
     iv,
     authTag,
-    candidateId,
     receiptHash: finalReceiptHash,
   });
 

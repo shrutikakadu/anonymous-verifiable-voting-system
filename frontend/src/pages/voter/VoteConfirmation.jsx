@@ -96,8 +96,8 @@ function VoteConfirmation() {
           🛡️ What This Receipt Proves
         </h3>
         <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#64748b', fontSize: '0.85rem', lineHeight: '1.8' }}>
-          <li><strong style={{ color: '#94a3b8' }}>Integrity:</strong> SHA-256 of (encryptedVote:IV:candidateId) — any tampering breaks the hash</li>
-          <li><strong style={{ color: '#94a3b8' }}>Confidentiality:</strong> Your vote is stored as AES-256-GCM ciphertext — only admin can decrypt for tally</li>
+          <li><strong style={{ color: '#94a3b8' }}>Integrity:</strong> SHA-256 of (encryptedVote:IV:authTag) — any tampering breaks the hash</li>
+          <li><strong style={{ color: '#94a3b8' }}>Confidentiality:</strong> Your vote choice is sealed inside AES-256-GCM ciphertext — only authorized tallying can decrypt it</li>
           <li><strong style={{ color: '#94a3b8' }}>Anonymity:</strong> The receipt hash cannot be traced back to your voter identity</li>
           <li><strong style={{ color: '#94a3b8' }}>Verifiability:</strong> You can verify inclusion on the public bulletin board at any time</li>
         </ul>

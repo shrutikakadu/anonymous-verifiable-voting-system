@@ -5,7 +5,6 @@ const voteSchema = new mongoose.Schema({
   iv:            { type: String, required: true },
   authTag:       { type: String, required: true },
   receiptHash:   { type: String, required: true, unique: true },
-  candidateId:   { type: String, required: true },
   timestamp:     { type: Date, default: Date.now },
 });
 

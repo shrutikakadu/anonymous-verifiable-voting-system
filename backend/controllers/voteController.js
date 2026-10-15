@@ -127,9 +127,9 @@ const castVote = async (req, res, next) => {
     const { encryptedVote, iv, authTag } = encryptionResult;
 
     // ── Step 6: Generate SHA-256 Receipt Hash ────────────────────────────────
-    // Formula: SHA-256(encryptedVote + ":" + iv + ":" + candidateId)
+    // Formula: SHA-256(encryptedVote + ":" + iv + ":" + authTag)
     // Matches Member 7's verifyVoteReceipt in backend/services/verificationService.js
-    const receiptHash = generateReceipt(encryptedVote, iv, candidateId);
+    const receiptHash = generateReceipt(encryptedVote, iv, authTag);
 
     // ── Step 7: Atomic Token Consumption ─────────────────────────────────────
     // Atomically consumes token; prevents concurrent race conditions
@@ -151,7 +151,6 @@ const castVote = async (req, res, next) => {
         encryptedVote,
         iv,
         authTag,
-        candidateId,
         receiptHash,
       });
       vote = stored.vote;

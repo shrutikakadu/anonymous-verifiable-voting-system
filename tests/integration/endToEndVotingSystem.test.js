@@ -444,7 +444,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
     expect(getRes.body.status).toBe('Vote included');
     expect(getRes.body.code).toBe('VOTE_INCLUDED');
     expect(getRes.body.receiptHash).toBe(generatedReceiptHash);
-    expect(getRes.body.candidateId).toBe(candidateSelected);
+    expect(getRes.body.candidateId).toBeUndefined();
 
     // 2. POST /api/verification/verify
     const postRes = await request(app)

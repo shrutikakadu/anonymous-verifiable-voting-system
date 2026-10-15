@@ -113,17 +113,17 @@ describe('Part 7 (Shrutika): Verification Service Unit Tests', () => {
   });
 
   describe('verifyVoteReceipt', () => {
-    it('successfully verifies a valid, untampered receipt', async () => {
+    it('successfully verifies a valid, untampered receipt and preserves ballot secrecy', async () => {
       const encryptedVote = 'enc_vote_data_sample';
       const iv = 'abcdef0123456789abcdef0123456789';
-      const candidateId = 'CAND_42';
-      const receiptHash = hashValue(`${encryptedVote}:${iv}:${candidateId}`).toLowerCase();
+      const authTag = '1234567890abcdef1234567890abcdef';
+      const receiptHash = hashValue(`${encryptedVote}:${iv}:${authTag}`).toLowerCase();
 
       const mockDbRecord = {
         _id: 'mongo_vote_id_1',
         encryptedVote,
         iv,
-        candidateId,
+        authTag,
         receiptHash,
         timestamp: new Date('2026-10-01T12:00:00Z'),
       };
@@ -138,7 +138,7 @@ describe('Part 7 (Shrutika): Verification Service Unit Tests', () => {
       expect(result.code).toBe(VERIFICATION_CODES.VOTE_INCLUDED);
       expect(result.status).toBe('Vote included');
       expect(result.receiptHash).toBe(receiptHash);
-      expect(result.candidateId).toBe(candidateId);
+      expect(result.candidateId).toBeUndefined(); // Crucial: candidate choice must NEVER be leaked
     });
 
     it('rejects receipt if not found in database', async () => {
@@ -168,14 +168,14 @@ describe('Part 7 (Shrutika): Verification Service Unit Tests', () => {
     it('detects tampering and rejects if database content does not match receipt hash', async () => {
       const encryptedVote = 'tampered_encrypted_payload';
       const iv = 'iv1234567890';
-      const candidateId = 'CAND_1';
+      const authTag = 'tag1234567890';
       // Original receipt hash for some other vote
       const fakeClaimedReceiptHash = crypto.createHash('sha256').update('original').digest('hex');
 
       const mockDbRecord = {
         encryptedVote,
         iv,
-        candidateId,
+        authTag,
         receiptHash: fakeClaimedReceiptHash,
         timestamp: new Date(),
       };

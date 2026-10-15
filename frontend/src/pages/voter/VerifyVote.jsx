@@ -239,7 +239,7 @@ function VerifyVote() {
             <strong>Individual Verifiability:</strong> Every voter can independently confirm their ballot was counted by verifying their receipt hash on the public bulletin board.
           </li>
           <li>
-            <strong>Ballot Secrecy:</strong> The receipt hash is computed over the ciphertext and IV (<code>SHA-256(encryptedVote:IV:candidateId)</code>), meaning neither public observers nor election workers can link your identity to your vote.
+            <strong>Ballot Secrecy:</strong> The receipt hash is computed over ciphertext metadata (<code>SHA-256(encryptedVote:IV:authTag)</code>), ensuring your candidate choice is kept strictly secret and cannot be leaked on public verification.
           </li>
           <li>
             <strong>Tamper Evidence:</strong> If any party attempts to modify the ballot box or receipt hash, the cryptographic checksum fails immediately.

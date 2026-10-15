@@ -132,7 +132,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
       expect(savedVoteDocument.encryptedVote).toBeDefined();
       expect(savedVoteDocument.iv).toMatch(/^[a-f0-9]{24}$/);       // 12 bytes = 24 hex
       expect(savedVoteDocument.authTag).toMatch(/^[a-f0-9]{32}$/);  // 16 bytes = 32 hex
-      expect(savedVoteDocument.candidateId).toBe(candidateId);
+      expect(savedVoteDocument.candidateId).toBeUndefined();
       expect(savedVoteDocument.receiptHash).toBe(res.body.receiptHash);
 
       // Verify that decryptAES can decrypt the stored record back to the original payload
@@ -154,7 +154,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
       const verificationResult = await verifyVoteReceipt(res.body.receiptHash);
       expect(verificationResult.valid).toBe(true);
       expect(verificationResult.status).toBe('Vote included');
-      expect(verificationResult.candidateId).toBe(candidateId);
+      expect(verificationResult.candidateId).toBeUndefined();
     });
   });
 
