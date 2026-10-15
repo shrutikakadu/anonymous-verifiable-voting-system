@@ -20,9 +20,13 @@ const bcrypt = require('bcryptjs');
 // ── Mock Mongoose models ─────────────────────────────────────────────────────
 jest.mock('../../backend/models/Admin');
 jest.mock('../../backend/models/Vote');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
 
 const Admin = require('../../backend/models/Admin');
 const Vote = require('../../backend/models/Vote');
+const RevokedToken = require('../../backend/models/RevokedToken');
 
 const app = require('../../backend/app');
 const { jwtSecret } = require('../../backend/config/keys');
@@ -49,7 +53,7 @@ describe('Security Tests: Role-Based Access Control & Admin Protection', () => {
 
     // Regular voter token
     validVoterJwt = jwt.sign(
-      { sub: voterId, role: 'voter', voterId: 'VOTER_100' },
+      { sub: voterId, role: 'voter', voterId: 'VOTER_100', otp: true },
       jwtSecret,
       { expiresIn: '1h' }
     );
@@ -72,6 +76,7 @@ describe('Security Tests: Role-Based Access Control & Admin Protection', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Vote.find.mockResolvedValue([]);
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
