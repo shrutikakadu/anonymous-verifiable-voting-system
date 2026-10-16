@@ -1,18 +1,5 @@
-'use strict';
 
-/**
- * tallyService.js
- * ---------------
- * Part 8 (Dakkshesh): Secure Tally — AES-256-GCM Decryption for Admin
- *
- * Retrieves all encrypted votes, decrypts them using Member 5's AES-256-GCM
- * implementation (decryptAES), and tallies the candidate counts.
- *
- * CNS Concepts:
- *  - Confidentiality: Votes remain encrypted in DB; only decrypted for admin tally
- *  - Authorized Decryption: Only admin endpoint (protected by JWT + RBAC) calls this
- *  - AES-256-GCM: Provides authenticated decryption (integrity + confidentiality)
- */
+'use strict';
 
 const Vote = require('../models/Vote');
 const { decryptAES } = require('../crypto/aes');
@@ -20,55 +7,77 @@ const { decryptAES } = require('../crypto/aes');
 const getTallyResults = async () => {
   const secretKey = process.env.AES_SECRET_KEY;
 
-  if (!secretKey || !/^[0-9a-fA-F]{64}$/.test(secretKey)) {
-    throw new Error('AES_SECRET_KEY must be a 64-character hexadecimal string.');
+  // Validate the AES-256 key before processing any votes.
+  if (
+    typeof secretKey !== 'string' ||
+    !/^[0-9a-fA-F]{64}$/.test(secretKey)
+  ) {
+    throw new Error(
+      'AES_SECRET_KEY must be a 64-character hexadecimal string.'
+    );
   }
 
-  const votes = await Vote.find({});
-  const tally = {};
-  let decryptErrors = 0;
+  // Load only fields required for secure decryption and tallying.
+  // Do not load the plaintext candidateId into the tallying process.
+  const votes = await Vote.find(
+    {},
+    'encryptedVote iv authTag'
+  ).lean();
+
+  const candidateCounts = new Map();
+  let rejectedVotes = 0;
 
   for (const vote of votes) {
     try {
-      // Decrypt using Member 5's AES-256-GCM decryptAES (requires authTag for integrity)
+      // AES-GCM verifies the authentication tag during decryption.
       const plaintext = decryptAES(
         {
           encryptedVote: vote.encryptedVote,
           iv: vote.iv,
-          authTag: vote.authTag,
+          authTag: vote.authTag
         },
         secretKey
       );
 
-      // Parse decrypted payload to get candidateId
-      let candidateId = null;
-      try {
-        const payload = JSON.parse(plaintext);
-        if (payload && payload.candidateId) {
-          candidateId = payload.candidateId;
-        } else if (typeof payload === 'string') {
-          candidateId = payload;
-        }
-      } catch {
-        candidateId = plaintext;
+      // Never use the plaintext database candidateId as a fallback.
+      const payload = JSON.parse(plaintext);
+
+      if (
+        payload === null ||
+        typeof payload !== 'object' ||
+        Array.isArray(payload)
+      ) {
+        throw new Error('Invalid decrypted vote payload.');
       }
 
-      if (candidateId) {
-        tally[candidateId] = (tally[candidateId] || 0) + 1;
+      const candidateId = payload.candidateId;
+
+      // Only accept the three configured candidates.
+      // Never fall back to the plaintext database candidateId.
+      if (!['c1', 'c2', 'c3'].includes(candidateId)) {
+        throw new Error('Invalid candidate ID in decrypted vote.');
       }
-    } catch (decryptError) {
-      // GCM auth tag mismatch = tampered ballot — counted as error, not tallied
-      decryptErrors += 1;
-      console.error(`Failed to decrypt vote ${vote._id}: ${decryptError.message}`);
+
+      candidateCounts.set(
+        candidateId,
+        (candidateCounts.get(candidateId) || 0) + 1
+      );
+    } catch {
+      // Do not count ballots that fail decryption or payload validation.
+      rejectedVotes += 1;
+
+      // Log only the vote record ID, not its contents or plaintext choice.
+      console.warn(
+        `Vote ${vote._id} was rejected during tally verification.`
+      );
     }
   }
 
   return {
     totalVotes: votes.length,
-    talliedVotes: votes.length - decryptErrors,
-    rejectedVotes: decryptErrors, // tampered or corrupted ballots
-    candidateResults: tally,
-    votes: votes.map((v) => ({ id: v._id, timestamp: v.timestamp, receiptHash: v.receiptHash })),
+    talliedVotes: votes.length - rejectedVotes,
+    rejectedVotes,
+    candidateResults: Object.fromEntries(candidateCounts)
   };
 };
 
