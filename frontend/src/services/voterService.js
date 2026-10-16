@@ -1,11 +1,3 @@
-import axios from 'axios';
+import voterApi from './voterApi';
 
-const API_URL = '/api/voter';
-
-export const getVoterProfile = async () => {
-  const token = localStorage.getItem('token');
-  const response = await axios.get(`${API_URL}/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
-};
+export const getVoterProfile = async () => (await voterApi.get('/voter/profile')).data;

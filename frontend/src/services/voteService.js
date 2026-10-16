@@ -1,11 +1,3 @@
-import axios from 'axios';
+import voterApi from './voterApi';
 
-const API_URL = '/api/vote';
-
-export const castVote = async (payload) => {
-  const token = localStorage.getItem('token');
-  const response = await axios.post(`${API_URL}/cast`, payload, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  return response.data;
-};
+export const castVote = async (payload) => (await voterApi.post('/vote/cast', payload)).data;

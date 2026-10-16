@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { verifyOTP, resendRegistrationOTP } from '../../services/authService';
-import { saveToken, saveRole, saveVoterId } from '../../utils/tokenStorage';
+import { useAuth } from '../../context/AuthContext';
 import ErrorMessage from '../../components/ErrorMessage';
 
 function OTPVerification() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const [pending] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('pendingOtp') || 'null'); }
     catch { return null; }
@@ -36,9 +37,7 @@ function OTPVerification() {
         navigate('/login', { replace: true });
       } else {
         if (!result.token) throw new Error('Login OTP response did not contain a JWT');
-        saveToken(result.token);
-        saveRole('voter');
-        saveVoterId(pending.voterId);
+        login({ token: result.token, voterId: pending.voterId });
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
