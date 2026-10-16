@@ -97,7 +97,7 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
   const rawPassword = 'StudentStrongPassword2026!';
   const voterId = 'VOTER202601';
   const email = 'student01@college.edu';
-  const candidateSelected = 'CANDIDATE_ALICE';
+  const candidateSelected = 'c1';
 
   let voterMongoId;
   let voterJwt;
@@ -484,7 +484,9 @@ describe('System Testing: Complete End-to-End Anonymous Verifiable Voting Flow',
     const adminJwt = loginRes.body.token;
 
     // Admin triggers secure tally
-    Vote.find.mockResolvedValue([persistedVoteRecord]);
+    Vote.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([persistedVoteRecord]),
+    });
 
     const tallyRes = await request(app)
       .post('/api/admin/tally')

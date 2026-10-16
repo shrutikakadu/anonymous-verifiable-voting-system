@@ -75,7 +75,9 @@ describe('Security Tests: Role-Based Access Control & Admin Protection', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    Vote.find.mockResolvedValue([]);
+    Vote.find.mockReturnValue({
+      lean: jest.fn().mockResolvedValue([]),
+    });
     RevokedToken.exists.mockResolvedValue(false);
   });
 

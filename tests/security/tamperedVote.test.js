@@ -185,16 +185,16 @@ describe('Security Tests: Tampered Vote Detection & Rejection', () => {
   // ───────────────────────────────────────────────────────────────────────────
   describe('3. Admin Tally Isolation of Tampered Ballots', () => {
     it('❌ Accurately identifies tampered ballots under rejectedVotes and excludes them from candidate tally', async () => {
-      // 1 valid ballot for candidate_A
-      const validPayloadA = JSON.stringify({ candidateId: 'candidate_A' });
+      // 1 valid ballot for Candidate A (c1)
+      const validPayloadA = JSON.stringify({ candidateId: 'c1' });
       const recordA = encryptAES(validPayloadA, secretKey);
 
-      // 1 valid ballot for candidate_B
-      const validPayloadB = JSON.stringify({ candidateId: 'candidate_B' });
+      // 1 valid ballot for Candidate B (c2)
+      const validPayloadB = JSON.stringify({ candidateId: 'c2' });
       const recordB = encryptAES(validPayloadB, secretKey);
 
       // 1 tampered ballot: ciphertext modified, will fail GCM authentication
-      const tamperedPayload = JSON.stringify({ candidateId: 'candidate_A' });
+      const tamperedPayload = JSON.stringify({ candidateId: 'c1' });
       const recordC = encryptAES(tamperedPayload, secretKey);
       const tamperedCiphertext = (recordC.encryptedVote[0] === 'a' ? 'b' : 'a') + recordC.encryptedVote.slice(1);
 
@@ -204,7 +204,7 @@ describe('Security Tests: Tampered Vote Detection & Rejection', () => {
           encryptedVote: recordA.encryptedVote,
           iv: recordA.iv,
           authTag: recordA.authTag,
-          candidateId: 'candidate_A',
+          candidateId: 'c1',
           receiptHash: 'receipt_1',
         },
         {
@@ -212,7 +212,7 @@ describe('Security Tests: Tampered Vote Detection & Rejection', () => {
           encryptedVote: recordB.encryptedVote,
           iv: recordB.iv,
           authTag: recordB.authTag,
-          candidateId: 'candidate_B',
+          candidateId: 'c2',
           receiptHash: 'receipt_2',
         },
         {
@@ -220,15 +220,17 @@ describe('Security Tests: Tampered Vote Detection & Rejection', () => {
           encryptedVote: tamperedCiphertext, // TAMPERED!
           iv: recordC.iv,
           authTag: recordC.authTag,
-          candidateId: 'candidate_A',
+          candidateId: 'c1',
           receiptHash: 'receipt_3',
         },
       ];
 
-      Vote.find.mockResolvedValue(mockVotes);
+      Vote.find.mockReturnValue({
+        lean: jest.fn().mockResolvedValue(mockVotes),
+      });
 
-      // Suppress expected console.error during test
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      // Suppress expected console warning during test
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       const tally = await getTallyResults();
 
@@ -237,8 +239,8 @@ describe('Security Tests: Tampered Vote Detection & Rejection', () => {
       expect(tally.totalVotes).toBe(3);
       expect(tally.talliedVotes).toBe(2);
       expect(tally.rejectedVotes).toBe(1); // 1 tampered ballot quarantined!
-      expect(tally.candidateResults['candidate_A']).toBe(1);
-      expect(tally.candidateResults['candidate_B']).toBe(1);
+      expect(tally.candidateResults['c1']).toBe(1);
+      expect(tally.candidateResults['c2']).toBe(1);
     });
   });
 });
