@@ -62,6 +62,9 @@ const Voter = require('../backend/models/Voter');
 const VotingToken = require('../backend/models/VotingToken');
 const Vote = require('../backend/models/Vote');
 const Admin = require('../backend/models/Admin');
+const RevokedToken = require('../backend/models/RevokedToken');
+
+RevokedToken.exists = fn(false);
 
 const { jwtSecret } = require('../backend/config/keys');
 const { encryptAES } = require('../backend/crypto/aes');
@@ -139,8 +142,8 @@ async function runAttackDemonstration() {
   console.log(`${BLUE}${BOLD}╚════════════════════════════════════════════════════════════════════╝${RESET}`);
   console.log(`Operating in SAFE LOCAL TEST ENVIRONMENT — No external networks targeted.`);
 
-  const voterJwt = jwt.sign({ sub: 'demo_voter_01', role: 'voter', voterId: 'VOTER_DEMO_01' }, jwtSecret, { expiresIn: '1h' });
-  const attackerJwt = jwt.sign({ sub: 'demo_attacker_02', role: 'voter', voterId: 'ATTACKER_99' }, jwtSecret, { expiresIn: '1h' });
+  const voterJwt = jwt.sign({ sub: 'demo_voter_01', role: 'voter', voterId: 'VOTER_DEMO_01', otp: true }, jwtSecret, { expiresIn: '1h' });
+  const attackerJwt = jwt.sign({ sub: 'demo_attacker_02', role: 'voter', voterId: 'ATTACKER_99', otp: true }, jwtSecret, { expiresIn: '1h' });
 
   // ───────────────────────────────────────────────────────────────────────────
   // ATTACK 1: Forged Voting Token
