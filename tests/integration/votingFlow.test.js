@@ -60,10 +60,14 @@ jest.mock('fs', () => {
 jest.mock('../../backend/models/VotingToken');
 jest.mock('../../backend/models/Vote');
 jest.mock('../../backend/models/Voter');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
 
 const VotingToken = require('../../backend/models/VotingToken');
 const Vote = require('../../backend/models/Vote');
 const Voter = require('../../backend/models/Voter');
+const RevokedToken = require('../../backend/models/RevokedToken');
 
 // ── Cryptographic & verification utilities under test ───────────────────────
 const { decryptAES } = require('../../backend/crypto/aes');
@@ -78,7 +82,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
 
   beforeAll(() => {
     process.env.AES_SECRET_KEY = validAesKey;
-    validJwt = jwt.sign({ sub: voterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    validJwt = jwt.sign({ sub: voterId, role: 'voter', otp: true }, jwtSecret, { expiresIn: '1h' });
   });
 
   beforeEach(() => {
@@ -86,6 +90,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
     process.env.AES_SECRET_KEY = validAesKey;
     Voter.findById.mockResolvedValue({ _id: voterId, hasVoted: false, save: jest.fn() });
     Vote.findOne.mockResolvedValue(null);
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -127,7 +132,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
       expect(savedVoteDocument.encryptedVote).toBeDefined();
       expect(savedVoteDocument.iv).toMatch(/^[a-f0-9]{24}$/);       // 12 bytes = 24 hex
       expect(savedVoteDocument.authTag).toMatch(/^[a-f0-9]{32}$/);  // 16 bytes = 32 hex
-      expect(savedVoteDocument.candidateId).toBe(candidateId);
+      expect(savedVoteDocument.candidateId).toBeUndefined();
       expect(savedVoteDocument.receiptHash).toBe(res.body.receiptHash);
 
       // Verify that decryptAES can decrypt the stored record back to the original payload
@@ -149,7 +154,7 @@ describe('Part 6 (Tanaya): Vote Submission API + SHA-256 Receipt Integration Tes
       const verificationResult = await verifyVoteReceipt(res.body.receiptHash);
       expect(verificationResult.valid).toBe(true);
       expect(verificationResult.status).toBe('Vote included');
-      expect(verificationResult.candidateId).toBe(candidateId);
+      expect(verificationResult.candidateId).toBeUndefined();
     });
   });
 

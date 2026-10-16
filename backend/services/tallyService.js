@@ -41,17 +41,21 @@ const getTallyResults = async () => {
       );
 
       // Parse decrypted payload to get candidateId
-      let candidateId = vote.candidateId; // fallback: stored plaintext candidateId
+      let candidateId = null;
       try {
         const payload = JSON.parse(plaintext);
         if (payload && payload.candidateId) {
           candidateId = payload.candidateId;
+        } else if (typeof payload === 'string') {
+          candidateId = payload;
         }
       } catch {
-        // plaintext might not be JSON, use stored candidateId as fallback
+        candidateId = plaintext;
       }
 
-      tally[candidateId] = (tally[candidateId] || 0) + 1;
+      if (candidateId) {
+        tally[candidateId] = (tally[candidateId] || 0) + 1;
+      }
     } catch (decryptError) {
       // GCM auth tag mismatch = tampered ballot — counted as error, not tallied
       decryptErrors += 1;
@@ -64,7 +68,7 @@ const getTallyResults = async () => {
     talliedVotes: votes.length - decryptErrors,
     rejectedVotes: decryptErrors, // tampered or corrupted ballots
     candidateResults: tally,
-    votes: votes.map((v) => ({ id: v._id, candidateId: v.candidateId, timestamp: v.timestamp, receiptHash: v.receiptHash })),
+    votes: votes.map((v) => ({ id: v._id, timestamp: v.timestamp, receiptHash: v.receiptHash })),
   };
 };
 

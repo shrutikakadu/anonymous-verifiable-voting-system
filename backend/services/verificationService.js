@@ -69,12 +69,13 @@ const getPublicBulletinBoard = async ({ page = 1, limit = 50, search = '' } = {}
   const totalVotes = await Vote.countDocuments(query);
   const totalPages = Math.ceil(totalVotes / numericLimit) || 1;
 
-  // Fetch anonymous public vote receipts (never expose sensitive private voter identity)
-  const votes = await Vote.find(query, 'receiptHash candidateId timestamp')
+  // Fetch anonymous public vote receipts (never expose sensitive private voter identity or choice)
+  const records = await Vote.find(query, 'receiptHash timestamp -_id')
     .sort({ timestamp: -1 })
     .skip(skip)
     .limit(numericLimit)
     .lean();
+  const votes = records.map(({ receiptHash, timestamp }) => ({ receiptHash, timestamp }));
 
   return {
     totalVotes,
@@ -91,11 +92,11 @@ const getPublicBulletinBoard = async ({ page = 1, limit = 50, search = '' } = {}
  * Verification Pipeline:
  *  1. Format check: Ensures the receipt is a valid 64-char SHA-256 hex string
  *  2. DB search: Looks up ballot record by receiptHash
- *  3. Cryptographic integrity check: Recomputes SHA-256 hash from (encryptedVote:iv:candidateId)
+ *  3. Cryptographic integrity check: Recomputes SHA-256 hash from (encryptedVote:iv:authTag)
  *     and compares with the claimed receiptHash.
  *
  * @param {string} receiptHash - The SHA-256 hash provided on the voter's receipt
- * @returns {Promise<{ valid: boolean, code: string, status: string, message: string, receiptHash: string, timestamp?: Date, candidateId?: string }>}
+ * @returns {Promise<{ valid: boolean, code: string, status: string, message: string, receiptHash: string, timestamp?: Date }>}
  */
 const verifyVoteReceipt = async (receiptHash) => {
   if (!receiptHash || typeof receiptHash !== 'string') {
@@ -133,8 +134,8 @@ const verifyVoteReceipt = async (receiptHash) => {
   }
 
   // Cryptographic integrity verification:
-  // Re-hash the stored encrypted vote, IV, and candidateId to verify the database entry is untampered
-  const expectedHash = hashValue(`${vote.encryptedVote}:${vote.iv}:${vote.candidateId}`).toLowerCase();
+  // Re-hash the stored encrypted vote, IV, and authTag to verify the database entry is untampered
+  const expectedHash = hashValue(`${vote.encryptedVote}:${vote.iv}:${vote.authTag}`).toLowerCase();
 
   if (expectedHash !== trimmedHash) {
     return {
@@ -152,7 +153,6 @@ const verifyVoteReceipt = async (receiptHash) => {
     status: 'Vote included',
     message: 'Vote included and cryptographically verified in ballot database.',
     receiptHash: trimmedHash,
-    candidateId: vote.candidateId,
     timestamp: vote.timestamp,
   };
 };

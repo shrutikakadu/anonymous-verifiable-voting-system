@@ -17,6 +17,7 @@ const crypto = require('crypto');
 // Mock Vote model
 jest.mock('../../backend/models/Vote');
 const Vote = require('../../backend/models/Vote');
+const VoteModel = jest.requireActual('../../backend/models/Vote');
 
 const { hashValue } = require('../../backend/crypto/sha256');
 const {
@@ -32,6 +33,12 @@ const {
 describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin Board', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('Ballot persistence privacy', () => {
+    test('Vote schema does not store candidateId in plaintext', () => {
+      expect(VoteModel.schema.path('candidateId')).toBeUndefined();
+    });
   });
 
   describe('Adversarial Scenario 1: Forged / Fake Receipt Hash', () => {
@@ -123,14 +130,14 @@ describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin 
     test('❌ Detects tampering when database vote payload was altered after receipt creation', async () => {
       const genuineEncrypted = 'original_encrypted_aes_payload';
       const iv = 'abcdef0123456789abcdef0123456789';
-      const candidateId = 'CAND_GENUINE';
-      const genuineReceiptHash = hashValue(`${genuineEncrypted}:${iv}:${candidateId}`).toLowerCase();
+      const authTag = '1234567890abcdef1234567890abcdef';
+      const genuineReceiptHash = hashValue(`${genuineEncrypted}:${iv}:${authTag}`).toLowerCase();
 
-      // Database record has been tampered with: candidateId changed by attacker
+      // Database record has been tampered with: authTag changed after receipt creation
       const tamperedRecord = {
         encryptedVote: genuineEncrypted,
         iv,
-        candidateId: 'CAND_TAMPERED', // Altered behind the scenes!
+        authTag: 'fedcba0987654321fedcba0987654321',
         receiptHash: genuineReceiptHash,
         timestamp: new Date(),
       };
@@ -151,13 +158,15 @@ describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin 
     test('✅ Successfully confirms vote inclusion for an authentic receipt hash', async () => {
       const encryptedVote = 'aes_256_ciphertext_valid';
       const iv = '1234567890abcdef1234567890abcdef';
+      const authTag = 'fedcba0987654321fedcba0987654321';
       const candidateId = 'CAND_A';
-      const validReceiptHash = hashValue(`${encryptedVote}:${iv}:${candidateId}`).toLowerCase();
+      const validReceiptHash = hashValue(`${encryptedVote}:${iv}:${authTag}`).toLowerCase();
 
       const validRecord = {
         _id: 'db_id_101',
         encryptedVote,
         iv,
+        authTag,
         candidateId,
         receiptHash: validReceiptHash,
         timestamp: new Date('2026-10-07T12:00:00Z'),
@@ -173,6 +182,25 @@ describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin 
       expect(result.status).toBe('Vote included');
       expect(result.code).toBe(VERIFICATION_CODES.VOTE_INCLUDED);
       expect(result.receiptHash).toBe(validReceiptHash);
+      expect(result.candidateId).toBeUndefined();
+
+      const req = { params: { receiptHash: validReceiptHash } };
+      const res = {
+        statusCode: null,
+        jsonData: null,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(data) {
+          this.jsonData = data;
+          return this;
+        },
+      };
+      await verifyReceiptController(req, res, () => {});
+
+      expect(res.statusCode).toBe(200);
+      expect(res.jsonData.candidateId).toBeUndefined();
     });
   });
 
@@ -183,6 +211,7 @@ describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin 
           receiptHash: 'a'.repeat(64),
           candidateId: 'CAND_1',
           timestamp: new Date(),
+          _id: 'vote-record-id',
         },
       ];
 
@@ -201,13 +230,40 @@ describe('Part 7 (Shrutika): Security Tests — Receipt Verification & Bulletin 
 
       expect(board.totalVotes).toBe(1);
       expect(board.votes).toHaveLength(1);
+      expect(Vote.find).toHaveBeenCalledWith({}, 'receiptHash timestamp -_id');
 
       // Verify no voter identity fields exist in the output
       const voteEntry = board.votes[0];
+      expect(voteEntry).toEqual({
+        receiptHash: 'a'.repeat(64),
+        timestamp: mockVotes[0].timestamp,
+      });
+      expect(voteEntry.candidateId).toBeUndefined();
       expect(voteEntry.voterId).toBeUndefined();
       expect(voteEntry.email).toBeUndefined();
       expect(voteEntry.name).toBeUndefined();
       expect(voteEntry.password).toBeUndefined();
+
+      const req = { query: { page: '1', limit: '10' } };
+      const res = {
+        statusCode: null,
+        jsonData: null,
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(data) {
+          this.jsonData = data;
+          return this;
+        },
+      };
+      await getBulletinBoardController(req, res, () => {});
+
+      expect(res.statusCode).toBe(200);
+      expect(res.jsonData.votes[0]).toEqual({
+        receiptHash: 'a'.repeat(64),
+        timestamp: mockVotes[0].timestamp,
+      });
     });
   });
 });

@@ -1,105 +1,132 @@
 /**
- * security/reusedToken.test.js
- * ------------------------------
- * Part 4 (Arya Akhade): Security Tests — Replay Attacks & Double-Vote Prevention
+ * tests/security/reusedToken.test.js
+ * -----------------------------------
+ * Part 10 & Part 4: Security Tests — Token Reuse & Double-Voting Prevention
  *
- * Validates CNS Security Concepts:
+ * Validates Cryptography & Network Security (CNS) Concepts:
  *  - Double-Vote Prevention (Single-use token consumption)
  *  - Replay Attack Mitigation (Detection of reused tokens)
  *  - Race Condition Defense (Atomic consumption via MongoDB findOneAndUpdate)
+ *  - Account-level Single-Vote Invariant (hasVoted flag)
+ *  - Duplicate Token Issuance Prevention (hasReceivedToken atomic flag)
  *  - Multi-Layer Protection (Token-level consumption + Voter-level hasVoted guard)
  */
 
 'use strict';
 
 const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
 
-// ── Generate real RSA Keypair for server testing ────────────────────────────
-const { privateKey: serverPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
+// ── Mock Mongoose models ─────────────────────────────────────────────────────
+jest.mock('../../backend/models/VotingToken');
+jest.mock('../../backend/models/Voter');
+jest.mock('../../backend/models/Vote');
+jest.mock('../../backend/models/RevokedToken', () => ({
+  exists: jest.fn().mockResolvedValue(false),
+}), { virtual: true });
+
+const VotingToken = require('../../backend/models/VotingToken');
+const Voter = require('../../backend/models/Voter');
+const Vote = require('../../backend/models/Vote');
+const RevokedToken = require('../../backend/models/RevokedToken');
+
+// ── Real RSA key pair for testing (prefixed with mock for Jest scope) ────────
+const { privateKey: mockServerPrivateKey, publicKey: mockServerPublicKey } = crypto.generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding:  { type: 'spki',  format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
 
-const signToken = (tokenStr) => {
+const sign = (tokenStr, privKey = mockServerPrivateKey) => {
   const signer = crypto.createSign('sha256');
   signer.update(tokenStr);
   signer.end();
-  return signer.sign(serverPrivateKey, 'base64');
+  return signer.sign(privKey, 'base64');
 };
 
+const signToken = (tokenStr) => sign(tokenStr, mockServerPrivateKey);
 const hashToken = (tokenStr) => crypto.createHash('sha256').update(tokenStr).digest('hex');
 
-// ── Mock KeyManager & FS to provide test RSA public key ─────────────────────
+// ── Mock fs to return our trusted server keys ────────────────────────────────
 jest.mock('fs', () => {
   const actualFs = jest.requireActual('fs');
   return {
     ...actualFs,
-    readFileSync: jest.fn((path, encoding) => {
-      if (typeof path === 'string' && path.includes('public.pem')) {
+    readFileSync: jest.fn((filePath, encoding) => {
+      if (typeof filePath === 'string' && filePath.includes('public.pem')) {
         return mockServerPublicKey;
       }
-      return actualFs.readFileSync(path, encoding);
+      if (typeof filePath === 'string' && filePath.includes('private.pem')) {
+        return mockServerPrivateKey;
+      }
+      return actualFs.readFileSync(filePath, encoding);
     }),
   };
 });
 
-// ── Mock Mongoose Models ───────────────────────────────────────────────────
-jest.mock('../../backend/models/VotingToken');
-jest.mock('../../backend/models/Vote');
-jest.mock('../../backend/models/Voter');
-
-const VotingToken = require('../../backend/models/VotingToken');
-const Vote = require('../../backend/models/Vote');
-const Voter = require('../../backend/models/Voter');
-const { jwtSecret } = require('../../backend/config/keys');
 const app = require('../../backend/app');
+const { jwtSecret } = require('../../backend/config/keys');
+const { VERIFY_RESULT } = require('../../backend/services/tokenVerificationService');
 
-describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Prevention', () => {
-  const voterId = 'test_voter_reused_suite';
-  let validJwt;
+describe('Security Tests: Token Reuse and Double-Voting Prevention', () => {
+  const testVoterId = 'voter_security_test_02';
+  let voterJwt;
+  const validAesKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
   beforeAll(() => {
-    validJwt = jwt.sign({ sub: voterId, role: 'voter' }, jwtSecret, { expiresIn: '1h' });
+    process.env.AES_SECRET_KEY = validAesKey;
+    voterJwt = jwt.sign({ sub: testVoterId, role: 'voter', otp: true }, jwtSecret, { expiresIn: '1h' });
   });
 
   beforeEach(() => {
     jest.clearAllMocks();
+    Voter.findById.mockResolvedValue({
+      _id: testVoterId,
+      hasVoted: false,
+      otpVerified: true,
+      isEligible: true,
+      hasReceivedToken: false,
+      save: jest.fn(),
+    });
+    Vote.findOne.mockResolvedValue(null);
+    RevokedToken.exists.mockResolvedValue(false);
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  describe('1. Replay Attack Detection at /api/token/verify', () => {
-    it('rejects an already-used token with HTTP 409 TOKEN_ALREADY_USED', async () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 1. Replay Attack Detection at /api/token/verify
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('1. Token Replay in Verification Endpoint (/api/token/verify)', () => {
+    it('❌ Returns HTTP 409 TOKEN_ALREADY_USED when verifying a previously used token', async () => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const signature = signToken(rawToken);
       const tokenHash = hashToken(rawToken);
-      const usedAt = new Date('2026-03-01T12:00:00Z');
+      const usedTimestamp = new Date('2026-10-10T10:00:00Z');
 
-      // Database returns token with used: true
       VotingToken.findOne.mockResolvedValue({
         tokenHash,
         used: true,
-        usedAt,
+        usedAt: usedTimestamp,
       });
 
       const res = await request(app)
         .post('/api/token/verify')
-        .set('Authorization', `Bearer ${validJwt}`)
-        .send({ token: rawToken, signature });
+        .set('Authorization', `Bearer ${voterJwt}`)
+        .send({ token: rawToken, signature, publicKey: mockServerPublicKey });
 
       expect(res.status).toBe(409);
       expect(res.body.valid).toBe(false);
-      expect(res.body.code).toBe('TOKEN_ALREADY_USED');
+      expect(res.body.code).toBe(VERIFY_RESULT.TOKEN_ALREADY_USED);
       expect(res.body.message).toContain('already been used');
-      expect(res.body.usedAt).toBe(usedAt.toISOString());
+      expect(res.body.usedAt).toBe(usedTimestamp.toISOString());
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  describe('2. Replay Attack Prevention at /api/token/mark-used', () => {
-    it('returns HTTP 200 when marking an unused token', async () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 2. Direct Token Consumption Endpoint (/api/token/mark-used)
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('2. Direct Token Consumption Endpoint (/api/token/mark-used)', () => {
+    it('✅ Returns HTTP 200 when successfully marking an unused token', async () => {
       const tokenHash = hashToken(crypto.randomBytes(32).toString('hex'));
 
       // findOneAndUpdate succeeds on unused token
@@ -111,7 +138,7 @@ describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Pr
 
       const res = await request(app)
         .post('/api/token/mark-used')
-        .set('Authorization', `Bearer ${validJwt}`)
+        .set('Authorization', `Bearer ${voterJwt}`)
         .send({ tokenHash });
 
       expect(res.status).toBe(200);
@@ -119,26 +146,36 @@ describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Pr
       expect(res.body.tokenHash).toBe(tokenHash);
     });
 
-    it('returns HTTP 409 when attempting to mark an already-used token', async () => {
-      const tokenHash = hashToken(crypto.randomBytes(32).toString('hex'));
+    it('❌ Returns HTTP 409 when attempting to re-mark an already consumed token', async () => {
+      const tokenHash = hashToken('test_token_already_consumed');
 
-      // findOneAndUpdate returns null (race condition / already marked)
+      // Atomic mark failed because token is already used
       VotingToken.findOneAndUpdate.mockResolvedValue(null);
 
       const res = await request(app)
         .post('/api/token/mark-used')
-        .set('Authorization', `Bearer ${validJwt}`)
+        .set('Authorization', `Bearer ${voterJwt}`)
         .send({ tokenHash });
 
       expect(res.status).toBe(409);
-      expect(res.body.code).toBe('TOKEN_ALREADY_USED');
       expect(res.body.message).toContain('double-vote attempt detected');
+      expect(res.body.code).toBe(VERIFY_RESULT.TOKEN_ALREADY_USED);
     });
 
-    it('rejects missing or malformed tokenHash at /api/token/mark-used (HTTP 400)', async () => {
+    it('❌ Returns HTTP 400 when tokenHash is missing', async () => {
       const res = await request(app)
         .post('/api/token/mark-used')
-        .set('Authorization', `Bearer ${validJwt}`)
+        .set('Authorization', `Bearer ${voterJwt}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('tokenHash is required');
+    });
+
+    it('❌ Rejects missing or malformed tokenHash at /api/token/mark-used (HTTP 400 non-hex)', async () => {
+      const res = await request(app)
+        .post('/api/token/mark-used')
+        .set('Authorization', `Bearer ${voterJwt}`)
         .send({ tokenHash: 'invalid-non-hex-hash' });
 
       expect(res.status).toBe(400);
@@ -146,9 +183,11 @@ describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Pr
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  describe('3. Race Condition / Concurrency Simulation', () => {
-    it('allows only one of two concurrent requests to mark the token as used', async () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 3. Race Condition / Concurrency Simulation on mark-used
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('3. Race Condition / Concurrency Simulation (/api/token/mark-used)', () => {
+    it('❌ Allows only one of two concurrent requests to mark the token as used', async () => {
       const tokenHash = hashToken(crypto.randomBytes(32).toString('hex'));
 
       // Simulate atomic findOneAndUpdate: first call matches document, second call matches null
@@ -159,11 +198,11 @@ describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Pr
       const [res1, res2] = await Promise.all([
         request(app)
           .post('/api/token/mark-used')
-          .set('Authorization', `Bearer ${validJwt}`)
+          .set('Authorization', `Bearer ${voterJwt}`)
           .send({ tokenHash }),
         request(app)
           .post('/api/token/mark-used')
-          .set('Authorization', `Bearer ${validJwt}`)
+          .set('Authorization', `Bearer ${voterJwt}`)
           .send({ tokenHash }),
       ]);
 
@@ -172,32 +211,103 @@ describe('Part 4 (Arya Akhade): Security Tests — Reused Token & Double-Vote Pr
     });
   });
 
-  // ─────────────────────────────────────────────────────────────────────────
-  describe('4. Multi-Layer Protection: Voter-Level Lockout', () => {
-    it('blocks voter with hasVoted=true even if presenting a fresh token (HTTP 403)', async () => {
+  // ───────────────────────────────────────────────────────────────────────────
+  // 4. Replay Attack in Vote Casting Endpoint (/api/vote/cast)
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('4. Replay Attack in Vote Casting Endpoint (/api/vote/cast)', () => {
+    it('❌ Rejects second ballot submission using the same token (HTTP 409)', async () => {
       const rawToken = crypto.randomBytes(32).toString('hex');
       const signature = signToken(rawToken);
       const tokenHash = hashToken(rawToken);
 
-      // Token itself is fresh in DB
-      VotingToken.findOne.mockResolvedValue({ tokenHash, used: false });
-
-      // Voter account has already voted
-      Voter.findById.mockResolvedValue({
-        _id: voterId,
-        hasVoted: true,
+      // Token already marked used in database
+      VotingToken.findOne.mockResolvedValue({
+        tokenHash,
+        used: true,
+        usedAt: new Date(),
       });
 
       const res = await request(app)
         .post('/api/vote/cast')
-        .set('Authorization', `Bearer ${validJwt}`)
+        .set('Authorization', `Bearer ${voterJwt}`)
         .send({
           token: rawToken,
           signature,
-          candidateId: 'c1',
+          candidateId: 'candidate_X',
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe(VERIFY_RESULT.TOKEN_ALREADY_USED);
+      expect(res.body.message).toContain('already been used');
+      expect(Vote.create).not.toHaveBeenCalled();
+    });
+
+    it('❌ Prevents concurrent double-voting race conditions atomically in /api/vote/cast', async () => {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const signature = signToken(rawToken);
+      const tokenHash = hashToken(rawToken);
+
+      // Stage 2 passes (findOne says unused), but atomic consumption findOneAndUpdate fails because another thread consumed it first
+      VotingToken.findOne.mockResolvedValue({ tokenHash, used: false });
+      VotingToken.findOneAndUpdate.mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/vote/cast')
+        .set('Authorization', `Bearer ${voterJwt}`)
+        .send({
+          token: rawToken,
+          signature,
+          candidateId: 'candidate_Y',
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.code).toBe(VERIFY_RESULT.TOKEN_ALREADY_USED);
+      expect(res.body.message).toContain('already marked as used');
+      expect(Vote.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 5. Account-Level Double-Voting & Duplicate Token Prevention
+  // ───────────────────────────────────────────────────────────────────────────
+  describe('5. Account-Level Double-Voting & Duplicate Token Prevention', () => {
+    it('❌ Rejects duplicate token issuance for the same voter (HTTP 409)', async () => {
+      // Voter has already received a token
+      Voter.findOneAndUpdate.mockResolvedValue(null);
+
+      const res = await request(app)
+        .post('/api/token/generate')
+        .set('Authorization', `Bearer ${voterJwt}`)
+        .send();
+
+      expect(res.status).toBe(409);
+      expect(res.body.message).toContain('already been issued');
+      expect(VotingToken.create).not.toHaveBeenCalled();
+    });
+
+    it('❌ Rejects vote submission if voter account has already voted (HTTP 403)', async () => {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const signature = signToken(rawToken);
+      const tokenHash = hashToken(rawToken);
+
+      VotingToken.findOne.mockResolvedValue({ tokenHash, used: false });
+      Voter.findById.mockResolvedValue({
+        _id: testVoterId,
+        hasVoted: true, // Already cast a ballot
+      });
+
+      const res = await request(app)
+        .post('/api/vote/cast')
+        .set('Authorization', `Bearer ${voterJwt}`)
+        .send({
+          token: rawToken,
+          signature,
+          candidateId: 'candidate_Z',
         });
 
       expect(res.status).toBe(403);
+      // Validates both message variants preserved from HEAD and main
+      expect(res.body.message).toContain('Voter cannot vote again');
       expect(res.body.message).toContain('ballot has already been submitted for this account');
       expect(Vote.create).not.toHaveBeenCalled();
     });
