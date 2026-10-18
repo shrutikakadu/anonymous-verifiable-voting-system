@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { loginVoter } from '../../services/authService';
 import { clearAuth } from '../../utils/tokenStorage';
 import ErrorMessage from '../../components/ErrorMessage';
@@ -44,6 +44,7 @@ function Login() {
           <button type="submit" disabled={submitting}>{submitting ? 'Checking…' : 'Login'}</button>
         </form>
         <ErrorMessage message={error} />
+        <p>Registration email not verified? <Link to="/register?resume=1">Resume registration verification</Link>.</p>
       </div>
     </div>
   );
