@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 jest.mock('nodemailer', () => ({ createTransport: jest.fn() }));
 const nodemailer = require('nodemailer');
 const Voter = require('../../backend/models/Voter');
+const RevokedToken = require('../../backend/models/RevokedToken');
 const app = require('../../backend/app');
 const { jwtSecret } = require('../../backend/config/keys');
 const { sendOTP } = require('../../backend/services/otpService');
@@ -16,6 +17,7 @@ const originalEnv = { ...process.env };
 let voters;
 let sendMail;
 let selections;
+let revoked;
 
 const post = (path, body) => request(app).post(`/api/auth/${path}`).send(body);
 const lastCode = () => sendMail.mock.calls.at(-1)[0].text.match(/code is (\d{6})/)[1];
@@ -33,12 +35,19 @@ const verifiedRegistration = async () => {
 beforeEach(() => {
   jest.clearAllMocks();
   voters = new Map();
+  revoked = new Set();
   selections = [];
   process.env.OTP_EMAIL = 'sender@example.test';
   process.env.OTP_EMAIL_PASSWORD = 'synthetic-mail-credential';
   sendMail = jest.fn().mockResolvedValue({ accepted: [registration.email] });
   nodemailer.createTransport.mockReturnValue({ sendMail });
   jest.spyOn(console, 'error').mockImplementation(() => {});
+  jest.spyOn(RevokedToken, 'exists').mockImplementation(async ({ tokenHash }) => revoked.has(tokenHash));
+  jest.spyOn(RevokedToken, 'updateOne').mockImplementation(async ({ tokenHash }) => {
+    revoked.add(tokenHash);
+    return { acknowledged: true };
+  });
+  jest.spyOn(Voter, 'findById').mockImplementation(() => ({ select: async () => stored() }));
   jest.spyOn(Voter, 'findOne').mockImplementation((filter) => {
     const voter = [...voters.values()].find((entry) => filter.$or
       ? filter.$or.some((term) => Object.entries(term).every(([k, v]) => entry[k] === v))
@@ -209,29 +218,33 @@ test('SMTP failure preserves registration and permits password-protected recover
   expect((await verify('registration')).status).toBe(200);
 });
 
-test('login and recovery delivery failures are reported without issuing a JWT', async () => {
+test('login and recovery delivery failures invalidate the failed challenge without issuing a JWT', async () => {
   await register();
   allowResend();
   sendMail.mockRejectedValueOnce(new Error('synthetic SMTP failure'));
   expect((await post('resend-registration-otp', credentials)).status).toBe(503);
-  await verify('registration');
+  expect(stored().otpHash).toBeNull();
+  allowResend();
+  expect((await post('resend-registration-otp', credentials)).status).toBe(200);
+  expect((await verify('registration')).status).toBe(200);
   sendMail.mockRejectedValueOnce(new Error('synthetic SMTP failure'));
   const result = await post('login', credentials);
   expect(result.status).toBe(503);
   expect(result.body.token).toBeUndefined();
+  expect(stored().otpHash).toBeNull();
 });
 
-test('missing SMTP credentials uses development logging but fails closed in production', async () => {
+test('missing SMTP credentials fails clearly in development and production without logging OTPs', async () => {
   delete process.env.OTP_EMAIL;
   delete process.env.OTP_EMAIL_PASSWORD;
   const log = jest.spyOn(console, 'log').mockImplementation(() => {});
   process.env.NODE_ENV = 'development';
-  await sendOTP(registration.email, '123456', 'registration');
-  expect(log).toHaveBeenCalledTimes(1);
+  await expect(sendOTP(registration.email, '123456', 'registration')).rejects.toThrow('not configured');
+  expect(log).not.toHaveBeenCalled();
   expect(nodemailer.createTransport).not.toHaveBeenCalled();
   process.env.NODE_ENV = 'production';
   await expect(sendOTP(registration.email, '123456', 'registration')).rejects.toThrow('not configured');
-  expect(log).toHaveBeenCalledTimes(1);
+  expect(log).not.toHaveBeenCalled();
 });
 
 test('schema keeps password and OTP hashes hidden and both voter ID and email unique', () => {
@@ -239,4 +252,87 @@ test('schema keeps password and OTP hashes hidden and both voter ID and email un
   expect(Voter.schema.path('otpHash').options.select).toBe(false);
   expect(Voter.schema.path('voterId').options.unique).toBe(true);
   expect(Voter.schema.path('email').options.unique).toBe(true);
+});
+
+test('missing credentials reports saved-but-unsent registration and refuses login/recovery delivery', async () => {
+  const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+  delete process.env.OTP_EMAIL_PASSWORD;
+  const result = await register();
+  expect(result.status).toBe(201);
+  expect(result.body.otpSent).toBe(false);
+  expect(result.body.message).toContain('not configured');
+  expect(stored().otpHash).toBeNull();
+  expect((await post('resend-registration-otp', credentials)).status).toBe(503);
+  expect(stored().emailVerified).toBe(false);
+  stored().emailVerified = true;
+  const login = await post('login', credentials);
+  expect(login.status).toBe(503);
+  expect(login.body.message).toContain('not configured');
+  expect(login.body.token).toBeUndefined();
+  expect(sendMail).not.toHaveBeenCalled();
+  expect(log).not.toHaveBeenCalled();
+});
+
+test.each([{ accepted: [] }, { accepted: ['different@example.test'] }])('SMTP acceptance without the intended recipient is a delivery failure (%j)', async ({ accepted }) => {
+  sendMail.mockResolvedValueOnce({ accepted, rejected: [registration.email] });
+  const result = await register();
+  expect(result.body.otpSent).toBe(false);
+  expect(stored().otpHash).toBeNull();
+  expect(stored().emailVerified).toBe(false);
+  expect(nodemailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({
+    service: 'gmail', connectionTimeout: 5000, socketTimeout: 10000,
+  }));
+});
+
+test.each([{}, [], 123, null])('non-string password is rejected without a server error (%j)', async (password) => {
+  for (const route of ['login', 'resend-registration-otp']) {
+    expect((await post(route, { ...credentials, password })).status).toBe(400);
+  }
+});
+
+test('production refuses the known development JWT signing secret', async () => {
+  await verifiedRegistration();
+  process.env.NODE_ENV = 'production';
+  const result = await post('login', credentials);
+  // Tests normally use the development fallback. A real strong JWT_SECRET is
+  // allowed if the test runner was explicitly configured with one.
+  if (['development_secret', 'replace_with_secure_random_secret'].includes(jwtSecret)) {
+    expect(result.status).toBe(503);
+    expect(sendMail).toHaveBeenCalledTimes(1);
+  } else expect(result.status).toBe(200);
+});
+
+test('complete auth flow protects the profile, revokes logout and gives same-second sign-ins distinct JWTs', async () => {
+  await verifiedRegistration();
+  jest.spyOn(Date, 'now').mockReturnValue(Date.now());
+  expect((await post('login', credentials)).status).toBe(200);
+  const first = await verify('login');
+  expect(first.status).toBe(200);
+  const token = first.body.token;
+  expect((await request(app).get('/api/voter/profile').set('Authorization', `Bearer ${token}`)).status).toBe(200);
+  expect((await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${token}`)).status).toBe(200);
+  expect((await request(app).get('/api/voter/profile').set('Authorization', `Bearer ${token}`)).status).toBe(401);
+  const update = RevokedToken.updateOne.mock.calls[0];
+  expect(update[0].tokenHash).toMatch(/^[a-f0-9]{64}$/);
+  expect(update[0].tokenHash).not.toBe(token);
+  allowResend();
+  expect((await post('login', credentials)).status).toBe(200);
+  const second = await verify('login');
+  expect(second.status).toBe(200);
+  expect(second.body.token).not.toBe(token);
+  const firstClaims = jwt.verify(token, jwtSecret);
+  const secondClaims = jwt.verify(second.body.token, jwtSecret);
+  expect(secondClaims.iat).toBe(firstClaims.iat);
+  expect(secondClaims.jti).not.toBe(firstClaims.jti);
+  expect((await request(app).get('/api/voter/profile').set('Authorization', `Bearer ${second.body.token}`)).status).toBe(200);
+});
+
+test('revocation database failures fail closed rather than pretending logout succeeded', async () => {
+  await verifiedRegistration();
+  await post('login', credentials);
+  const { body } = await verify('login');
+  RevokedToken.updateOne.mockRejectedValueOnce(new Error('synthetic database failure'));
+  expect((await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${body.token}`)).status).toBe(500);
+  RevokedToken.exists.mockRejectedValueOnce(new Error('synthetic database failure'));
+  expect((await request(app).get('/api/voter/profile').set('Authorization', `Bearer ${body.token}`)).status).toBe(500);
 });

@@ -4,6 +4,7 @@ import { logoutVoter } from '../services/authService';
 import { SESSION_EXPIRED_EVENT } from '../services/voterApi';
 import {
   clearCredential,
+  clearPendingOtp,
   clearReceipt,
   clearSession,
   getCredential,
@@ -57,15 +58,21 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
+    let logoutWarning;
     try {
       await logoutVoter(); // revokes the JWT on the server
-    } catch {
-      // Clear locally even if the server call fails.
+    } catch (error) {
+      // An expired/revoked token is already unusable. Other failures must not
+      // imply server revocation succeeded, even though we clear this device.
+      if (error.response?.status !== 401) {
+        logoutWarning = 'Signed out on this device, but the server could not confirm logout. Your previous session may remain active until it expires.';
+      }
     }
     endSession();
     clearReceipt();
     setReceiptRecord(null);
-    navigate('/login', { replace: true });
+    clearPendingOtp();
+    navigate('/login', { replace: true, state: { logoutWarning } });
   }, [endSession, navigate]);
 
   const expireSession = useCallback(() => {

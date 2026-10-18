@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loginVoter } from '../../services/authService';
 import { clearAuth } from '../../utils/tokenStorage';
 import ErrorMessage from '../../components/ErrorMessage';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ voterId: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,7 @@ function Login() {
     <div className="container">
       <div className="card">
         <h2>Login</h2>
+        {location.state?.logoutWarning && <p role="alert">{location.state.logoutWarning}</p>}
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
           <input name="voterId" placeholder="Voter ID" autoComplete="username" required value={form.voterId} onChange={handleChange} />
           <input name="password" type="password" placeholder="Password" autoComplete="current-password" required value={form.password} onChange={handleChange} />

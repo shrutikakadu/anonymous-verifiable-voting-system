@@ -19,19 +19,18 @@ const voters = new Map();
 const revoked = new Set();
 
 let lastOTP = null;
-
 const oldLog = console.log;
-
-console.log = (...args) => {
-  const line = args.join(' ');
-  const match = line.match(/\[DEV MODE\].*OTP.*: (\d{6})/);
-
-  if (match) {
-    lastOTP = match[1];
-  } else {
-    oldLog(...args);
-  }
-};
+// Explicit mail double: this smoke test never sends Gmail or logs OTP values.
+const nodemailer = backendRequire('nodemailer');
+const originalTransport = nodemailer.createTransport;
+const originalEmail = process.env.OTP_EMAIL;
+const originalPassword = process.env.OTP_EMAIL_PASSWORD;
+process.env.OTP_EMAIL = 'smoke@example.test';
+process.env.OTP_EMAIL_PASSWORD = 'synthetic-mail-credential';
+nodemailer.createTransport = () => ({ sendMail: async (mail) => {
+  lastOTP = mail.text.match(/code is (\d{6})/)[1];
+  return { accepted: [mail.to] };
+} });
 
 const findVoter = (filter) => {
   if (filter.$or) {
@@ -270,6 +269,10 @@ const expectStatus = (response, status, label) => {
     process.exitCode = 1;
 
   } finally {
-    console.log = oldLog;
+    nodemailer.createTransport = originalTransport;
+    if (originalEmail === undefined) delete process.env.OTP_EMAIL;
+    else process.env.OTP_EMAIL = originalEmail;
+    if (originalPassword === undefined) delete process.env.OTP_EMAIL_PASSWORD;
+    else process.env.OTP_EMAIL_PASSWORD = originalPassword;
   }
 })();

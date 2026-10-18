@@ -29,7 +29,10 @@ function Register() {
         purpose: 'registration',
       }));
       setForm((prev) => ({ ...prev, password: '' }));
-      navigate('/verify-otp', { state: { otpError: !resuming && !result.otpSent } });
+      navigate('/verify-otp', { state: {
+        otpError: !resuming && !result.otpSent,
+        otpMessage: !resuming && !result.otpSent ? result.message : '',
+      } });
     } catch (err) {
       setError(err.response?.data?.message || (resuming ? 'Could not resume verification' : 'Registration failed'));
     } finally {

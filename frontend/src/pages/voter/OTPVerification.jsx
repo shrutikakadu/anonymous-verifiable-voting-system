@@ -16,7 +16,8 @@ function OTPVerification() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resendPassword, setResendPassword] = useState('');
-  const [notice, setNotice] = useState(location.state?.otpError ? 'OTP could not be sent. Try requesting a new one below.' : '');
+  const [notice, setNotice] = useState(location.state?.otpError
+    ? (location.state.otpMessage || 'OTP could not be sent. Try requesting a new one below.') : '');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -32,12 +33,13 @@ function OTPVerification() {
         otpCode,
         purpose: pending.purpose,
       });
-      sessionStorage.removeItem('pendingOtp');
       if (pending.purpose === 'registration') {
+        sessionStorage.removeItem('pendingOtp');
         navigate('/login', { replace: true });
       } else {
-        if (!result.token) throw new Error('Login OTP response did not contain a JWT');
+        if (!result.token) throw new Error('Login verification returned no session. Please log in again.');
         login({ token: result.token, voterId: pending.voterId });
+        sessionStorage.removeItem('pendingOtp');
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
