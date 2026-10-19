@@ -10,6 +10,8 @@ import Alert from '../../components/ui/Alert';
 import Checklist from '../../components/ui/Checklist';
 import ReceiptSlip from '../../components/ui/ReceiptSlip';
 import Skeleton from '../../components/ui/Skeleton';
+import VerifyVote from './VerifyVote';
+import BulletinBoard from '../public/BulletinBoard';
 
 const SESSION_WARNING_MS = 5 * 60 * 1000;
 
@@ -81,67 +83,106 @@ function VoterDashboard() {
       title: 'Verify your receipt',
       status: steps[4].status,
       note: 'Check that your ballot appears on the public bulletin board.',
-      action: hasVoted ? <button type="button" onClick={() => navigate(receiptLink)}>Verify receipt</button> : null,
+      action: hasVoted ? (
+        <button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById('verification-section');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              navigate(receiptLink);
+            }
+          }}
+        >
+          Verify receipt
+        </button>
+      ) : null,
     },
   ];
 
   return (
-    <div className="container">
-      <PageHeader
-        eyebrow="Voter"
-        title="Your ballot"
-        subtitle={profile ? `Signed in as ${profile.name} (${profile.voterId}).` : 'Your voting progress.'}
-      />
+    <>
+      <div className="container">
+        <PageHeader
+          eyebrow="Voter"
+          title="Your ballot"
+          subtitle={profile ? `Signed in as ${profile.name} (${profile.voterId}).` : 'Your voting progress.'}
+        />
 
-      {error && <Alert tone="danger" title="Could not load your profile">{error}</Alert>}
-      {remaining > 0 && remaining < SESSION_WARNING_MS && (
-        <Alert tone="warning" title="Your session ends soon">
-          You will be signed out in {formatDuration(remaining)}. Finish voting, or log in again afterwards.
-        </Alert>
-      )}
+        {error && <Alert tone="danger" title="Could not load your profile">{error}</Alert>}
+        {remaining > 0 && remaining < SESSION_WARNING_MS && (
+          <Alert tone="warning" title="Your session ends soon">
+            You will be signed out in {formatDuration(remaining)}. Finish voting, or log in again afterwards.
+          </Alert>
+        )}
 
-      <div className="v-split">
-        <div className="v-stack">
-          <div className="card">
-            {loading ? (
-              <>
-                <Skeleton width="45%" height="1.3rem" />
-                <Skeleton />
-                <Skeleton width="70%" />
-                <Skeleton width="55%" />
-              </>
-            ) : (
-              <Checklist items={items} />
+        <div className="v-split">
+          <div className="v-stack">
+            <div className="card">
+              {loading ? (
+                <>
+                  <Skeleton width="45%" height="1.3rem" />
+                  <Skeleton />
+                  <Skeleton width="70%" />
+                  <Skeleton width="55%" />
+                </>
+              ) : (
+                <Checklist items={items} />
+              )}
+            </div>
+
+            {hasVoted && receipt && (
+              <ReceiptSlip receiptHash={receipt.receiptHash}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => {
+                    const el = document.getElementById('verification-section');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth' });
+                    } else {
+                      navigate(receiptLink);
+                    }
+                  }}
+                >
+                  Verify this receipt
+                </button>
+              </ReceiptSlip>
             )}
           </div>
 
-          {hasVoted && receipt && (
-            <ReceiptSlip receiptHash={receipt.receiptHash}>
-              <button type="button" className="btn-secondary" onClick={() => navigate(receiptLink)}>Verify this receipt</button>
-            </ReceiptSlip>
-          )}
-        </div>
-
-        <div className="v-stack">
-          <div className="card">
-            <p className="v-eyebrow">Status</p>
-            <dl className="v-dl">
-              <div><dt>Voting token</dt><dd>{loading ? '...' : tokenValue}</dd></div>
-              <div><dt>Ballot</dt><dd>{loading ? '...' : hasVoted ? 'Cast' : 'Not cast'}</dd></div>
-              <div><dt>Session</dt><dd>{formatDuration(remaining)}</dd></div>
-            </dl>
-          </div>
-          <div className="card">
-            <p className="v-eyebrow">Protection</p>
-            <ul className="v-list">
-              <li>Your session is a signed token that expires after 2 hours and is revoked when you log out.</li>
-              <li>Your ballot is stored without your name and encrypted with AES-256-GCM.</li>
-              <li>Your receipt lets you check your ballot without revealing who you are.</li>
-            </ul>
+          <div className="v-stack">
+            <div className="card">
+              <p className="v-eyebrow">Status</p>
+              <dl className="v-dl">
+                <div><dt>Voting token</dt><dd>{loading ? '...' : tokenValue}</dd></div>
+                <div><dt>Ballot</dt><dd>{loading ? '...' : hasVoted ? 'Cast' : 'Not cast'}</dd></div>
+                <div><dt>Session</dt><dd>{formatDuration(remaining)}</dd></div>
+              </dl>
+            </div>
+            <div className="card">
+              <p className="v-eyebrow">Protection</p>
+              <ul className="v-list">
+                <li>Your session is a signed token that expires after 2 hours and is revoked when you log out.</li>
+                <li>Your ballot is stored without your name and encrypted with AES-256-GCM.</li>
+                <li>Your receipt lets you check your ballot without revealing who you are.</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Vote Verification Section */}
+      <section id="verification-section">
+        <VerifyVote initialReceipt={receipt ? receipt.receiptHash : ''} />
+      </section>
+
+      {/* Bulletin Board Section */}
+      <section id="bulletin-board-section">
+        <BulletinBoard />
+      </section>
+    </>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { verifyReceipt, fetchVerificationStats } from '../../services/verificationService';
 
-function VerifyVote() {
+function VerifyVote({ initialReceipt } = {}) {
   const location = useLocation();
   const [receiptHash, setReceiptHash] = useState('');
   const [result, setResult] = useState(null);
@@ -13,7 +13,7 @@ function VerifyVote() {
   // Read query params if redirected from BulletinBoard (e.g. ?receipt=...)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const receiptParam = params.get('receipt');
+    const receiptParam = params.get('receipt') || initialReceipt;
     if (receiptParam) {
       setReceiptHash(receiptParam);
       runVerification(receiptParam);
@@ -23,7 +23,7 @@ function VerifyVote() {
     fetchVerificationStats()
       .then((data) => setStats(data))
       .catch(() => {});
-  }, [location.search]);
+  }, [location.search, initialReceipt]);
 
   const runVerification = async (hashToVerify) => {
     const target = (hashToVerify || receiptHash || '').trim();
@@ -110,7 +110,17 @@ function VerifyVote() {
           </strong>
         </div>
         <div style={{ marginLeft: 'auto' }}>
-          <Link to="/" style={{ color: '#60a5fa', fontSize: '0.85rem', textDecoration: 'none' }}>
+          <Link
+            to="/"
+            onClick={(e) => {
+              const el = document.getElementById('bulletin-board-section');
+              if (el) {
+                e.preventDefault();
+                el.scrollIntoView({ behavior: 'smooth' });
+              }
+            }}
+            style={{ color: '#60a5fa', fontSize: '0.85rem', textDecoration: 'none' }}
+          >
             View Full Bulletin Board →
           </Link>
         </div>
