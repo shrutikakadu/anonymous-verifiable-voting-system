@@ -39,7 +39,13 @@ function BulletinBoard() {
   };
 
   const handleVerifyNavigate = (receiptHash) => {
-    navigate(`/verify-vote?receipt=${encodeURIComponent(receiptHash)}`);
+    const el = document.getElementById('verification-section');
+    if (el) {
+      navigate(`?receipt=${encodeURIComponent(receiptHash)}`, { replace: true });
+      el.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate(`/verify-vote?receipt=${encodeURIComponent(receiptHash)}`);
+    }
   };
 
   const formatDate = (timestamp) => {
@@ -139,7 +145,14 @@ function BulletinBoard() {
             )}
           </div>
           <button
-            onClick={() => navigate('/verify-vote')}
+            onClick={() => {
+              const el = document.getElementById('verification-section');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                navigate('/verify-vote');
+              }
+            }}
             className="btn-outline"
             style={{ whiteSpace: 'nowrap' }}
           >
